@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { decodeBencode } from '@torrent/bencode';
 import { BunTorrentError } from '@utils/errors';
-import { BencodeDecodeError, BencodeDecodeErrorCode } from './decoder.error';
+import { BencodeDecodeError, BencodeDecodeErrorCode } from '../decoder.error';
 
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value);
 
