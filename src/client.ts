@@ -1,20 +1,30 @@
+import { createPeerId } from '@peer/peer-id';
 import { parseTorrent } from '@torrent/parser';
 import type { TorrentMetadata } from '@torrent/types';
-
-export type InspectTorrentInput = {
-    torrentFile: TorrentFileInput;
-};
+import { trackPeers } from './tracker';
 
 export class Client {
-    constructor() {}
+    private readonly peerId: Uint8Array;
 
-    public async inspect(input: InspectTorrentInput): Promise<TorrentMetadata> {
-        const bytes = await readTorrentFile(input.torrentFile);
-        return parseTorrent(bytes);
+    constructor() {
+        this.peerId = createPeerId();
     }
 
-    download(_input: unknown): unknown {
-        throw new Error('Download is not implemented yet');
+    public async download(input: {
+        torrentFile: string | Uint8Array | ArrayBuffer;
+    }): Promise<void> {
+        const bytes = await readTorrentFile(input.torrentFile);
+        const meta = parseTorrent(bytes);
+
+        const peers = await trackPeers({ meta, peerId: this.peerId });
+        console.log('Got peers:', peers);
+    }
+
+    public async inspect(input: {
+        torrentFile: string | Uint8Array | ArrayBuffer;
+    }): Promise<TorrentMetadata> {
+        const bytes = await readTorrentFile(input.torrentFile);
+        return parseTorrent(bytes);
     }
 }
 

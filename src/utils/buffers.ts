@@ -1,4 +1,6 @@
-export const concatBytes = (parts: Uint8Array[]): Uint8Array => {
+type ByteArray = Uint8Array<ArrayBufferLike>;
+
+export const concatBytes = (parts: ByteArray[]): Uint8Array => {
     const length = parts.reduce((total, part) => total + part.byteLength, 0);
     const output = new Uint8Array(length);
 
@@ -11,7 +13,7 @@ export const concatBytes = (parts: Uint8Array[]): Uint8Array => {
     return output;
 };
 
-export const compareBytes = (left: Uint8Array, right: Uint8Array): number => {
+export const compareBytes = (left: ByteArray, right: ByteArray): number => {
     const length = Math.min(left.byteLength, right.byteLength);
 
     for (let i = 0; i < length; i++) {
@@ -22,5 +24,5 @@ export const compareBytes = (left: Uint8Array, right: Uint8Array): number => {
     return left.byteLength - right.byteLength;
 };
 
-export const bytesToHex = (bytes: Uint8Array): string =>
+export const bytesToHex = (bytes: ByteArray): string =>
     [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');

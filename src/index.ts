@@ -22,10 +22,28 @@ export {
 export {
     createPeerId,
     decodeHandshake,
+    decodePeerMessage,
+    encodePeerMessage,
     encodeHandshake,
     HandshakeErrorCode,
+    PeerMessageError,
+    PeerMessageErrorCode,
+    PeerMessageId,
     PeerHandshakeError,
     type PeerHandshake,
+} from '@peer/index';
+export type {
+    BitfieldMessage,
+    CancelMessage,
+    ChokeMessage,
+    HaveMessage,
+    InterestedMessage,
+    KeepAliveMessage,
+    NotInterestedMessage,
+    PeerMessage,
+    PieceMessage,
+    RequestMessage,
+    UnchokeMessage,
 } from '@peer/index';
 
 export { BunTorrentError } from '@utils/errors';
