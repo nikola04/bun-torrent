@@ -1,2 +1,3 @@
 export { decodeBencode } from './decoder';
-export { BencodeEncoder } from './encoder';
+export { encodeBencode } from './encoder';
+export { toBValue } from './utils';
