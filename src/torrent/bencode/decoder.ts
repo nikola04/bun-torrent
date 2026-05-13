@@ -6,7 +6,13 @@ export const decodeBencode = (input: Uint8Array): BValue => {
     return decoder.decode();
 };
 
-const createDecoder = ({ input }: { input: Uint8Array }) => {
+const createDecoder = ({
+    input,
+    maxBytesLength = 1024 * 1024,
+}: {
+    input: Uint8Array;
+    maxBytesLength?: number;
+}) => {
     const buffer = input;
     let offset = 0;
 
@@ -23,6 +29,25 @@ const createDecoder = ({ input }: { input: Uint8Array }) => {
         return buffer[offset + 1]!;
     };
 
+    const readNumber = (): number => {
+        if (char() === 0x30 && hasNextChar() && isDigit(nextChar()))
+            fail(BencodeDecodeErrorCode.LEADING_ZERO, 'Leading zeroes not allowed');
+
+        let integer = 0;
+        while (hasRemainingData() && isDigit(char())) {
+            const digit = char() - 0x30;
+            integer = integer * 10 + digit;
+            offset++;
+        }
+
+        return integer;
+    };
+
+    const checkNumber = (integer: number): void | never => {
+        if (Number.isSafeInteger(integer)) return;
+        return fail(BencodeDecodeErrorCode.UNSAFE_INTEGER, 'Decoded Integer is not safe');
+    };
+
     const readInteger = (): BInteger => {
         if (char() !== FLAG.INTEGER)
             fail(BencodeDecodeErrorCode.EXPECTED_INTEGER, 'Not bencode Integer');
@@ -31,17 +56,10 @@ const createDecoder = ({ input }: { input: Uint8Array }) => {
         const sign = char() === FLAG.MINUS ? -1 : 1;
         if (sign === -1) offset++;
 
-        if (!isInteger(char()))
+        if (!isDigit(char()))
             fail(BencodeDecodeErrorCode.MISSING_INTEGER_DIGITS, 'Missing Integer digits');
-        if (char() === 0x30 && hasNextChar() && isInteger(nextChar()))
-            fail(BencodeDecodeErrorCode.LEADING_ZERO, 'Leading zeroes not allowed');
 
-        let integer = 0;
-        while (hasRemainingData() && isInteger(char())) {
-            const digit = char() - 0x30;
-            integer = integer * 10 + digit;
-            offset++;
-        }
+        const integer = readNumber();
 
         if (!hasRemainingData() || char() !== FLAG.END)
             fail(
@@ -53,24 +71,56 @@ const createDecoder = ({ input }: { input: Uint8Array }) => {
         if (sign === -1 && integer === 0)
             fail(BencodeDecodeErrorCode.NEGATIVE_ZERO, 'Bencode Integer cannot be -0');
 
-        integer = integer * sign;
+        const result = integer * sign;
+        checkNumber(result);
 
-        if (!Number.isSafeInteger(integer))
-            fail(BencodeDecodeErrorCode.UNSAFE_INTEGER, 'Decoded Integer is not safe');
-
-        return integer;
+        return result;
     };
 
-    // const readBytes = (): Uint8Array => {};
+    const readBytes = (): Uint8Array => {
+        if (!isDigit(char()))
+            fail(BencodeDecodeErrorCode.EXPECTED_DIGIT, 'Not digit, failed to read length');
+
+        const length = readNumber();
+        checkNumber(length);
+
+        if (length > maxBytesLength)
+            fail(
+                BencodeDecodeErrorCode.MAX_SIZE_EXCEEDED,
+                `Bytes max size exceeded (${length}:${maxBytesLength})`,
+            );
+
+        if (!hasRemainingData() || char() !== FLAG.STR_DELIMITER)
+            fail(BencodeDecodeErrorCode.EXPECTED_DELIM, 'Bytes failed, expected delimiter');
+        offset++;
+
+        const start = offset,
+            end = offset + length;
+        if (end > buffer.length) fail(BencodeDecodeErrorCode.BUFFER_OVERFLOW, 'Buffer overflow');
+
+        offset = end;
+        return buffer.subarray(start, end);
+    };
+
+    // const readList = (): Array<BValue> => {};
+    // const readDictionary = (): BDict => {};
+
+    const readValue = (): BValue => {
+        const current = char();
+
+        if (current === FLAG.INTEGER) return readInteger();
+        if (isDigit(current)) return readBytes();
+        // if (current === FLAG.LIST) return readList();
+        // if (current === FLAG.DICTIONARY) return readDictionary();
+
+        return fail(BencodeDecodeErrorCode.BAD_FORMAT, 'Bad bencode format, failed to decode');
+    };
 
     const decode = (): BValue => {
-        const value = char() === FLAG.INTEGER ? readInteger() : undefined;
-
-        if (value === undefined)
-            return fail(BencodeDecodeErrorCode.BAD_FORMAT, 'Bad bencode format, failed to decode');
+        const value = readValue();
 
         if (hasRemainingData())
-            fail(BencodeDecodeErrorCode.TRAILING_DATA, 'There is excess trailing data');
+            return fail(BencodeDecodeErrorCode.TRAILING_DATA, 'There is excess trailing data');
 
         return value;
     };
@@ -84,4 +134,4 @@ const createDecoder = ({ input }: { input: Uint8Array }) => {
     };
 };
 
-const isInteger = (char: number) => char >= 0x30 && char <= 0x39;
+const isDigit = (char: number) => char >= 0x30 && char <= 0x39;

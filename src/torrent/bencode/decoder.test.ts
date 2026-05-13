@@ -21,6 +21,13 @@ const expectDecodeError = (value: string, code: BencodeDecodeErrorCode, offset?:
     }
 };
 
+const expectDecodedBytes = (value: string, expected: string): void => {
+    const decoded = decodeBencode(bytes(value));
+
+    expect(decoded).toBeInstanceOf(Uint8Array);
+    expect([...Uint8Array.from(decoded as Uint8Array)]).toEqual([...bytes(expected)]);
+};
+
 describe('decodeBencode integer', () => {
     test('decodes zero', () => {
         expect(decodeBencode(bytes('i0e'))).toBe(0);
@@ -70,5 +77,46 @@ describe('decodeBencode integer', () => {
 
     test('rejects unsupported root values with a bencode decode error', () => {
         expectDecodeError('x', BencodeDecodeErrorCode.BAD_FORMAT, 0);
+    });
+});
+
+describe('decodeBencode bytes', () => {
+    test('decodes empty bytes', () => {
+        const decoded = decodeBencode(bytes('0:'));
+
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect((decoded as Uint8Array).byteLength).toBe(0);
+    });
+
+    test('decodes byte strings', () => {
+        expectDecodedBytes('4:spam', 'spam');
+        expectDecodedBytes('11:hello world', 'hello world');
+    });
+
+    test('preserves raw binary bytes', () => {
+        const input = new Uint8Array([0x34, 0x3a, 0x00, 0xff, 0x69, 0x65]);
+        const decoded = decodeBencode(input);
+
+        expect(decoded).toBeInstanceOf(Uint8Array);
+        expect([...Uint8Array.from(decoded as Uint8Array)]).toEqual([0x00, 0xff, 0x69, 0x65]);
+    });
+
+    test('rejects leading zeroes in byte string length', () => {
+        expectDecodeError('04:spam', BencodeDecodeErrorCode.LEADING_ZERO, 0);
+        expectDecodeError('00:', BencodeDecodeErrorCode.LEADING_ZERO, 0);
+    });
+
+    test('rejects byte strings without a delimiter', () => {
+        expectDecodeError('4spam', BencodeDecodeErrorCode.EXPECTED_DELIM, 1);
+        expectDecodeError('4', BencodeDecodeErrorCode.EXPECTED_DELIM, 1);
+    });
+
+    test('rejects truncated byte strings', () => {
+        expectDecodeError('4:spa', BencodeDecodeErrorCode.BUFFER_OVERFLOW, 2);
+        expectDecodeError('1:', BencodeDecodeErrorCode.BUFFER_OVERFLOW, 2);
+    });
+
+    test('rejects trailing data after root bytes', () => {
+        expectDecodeError('4:spame', BencodeDecodeErrorCode.TRAILING_DATA, 6);
     });
 });
