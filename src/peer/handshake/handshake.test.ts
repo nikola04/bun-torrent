@@ -9,8 +9,8 @@ import {
     PROTOCOL_BYTES,
     RESERVED_LENGTH,
 } from '../consts';
-import { decodeHandshake, encodeHandshake } from '../handshake';
-import { HandshakeErrorCode, PeerHandshakeError } from '../handshake.error';
+import { decodeHandshake, encodeHandshake } from '../handshake/handshake';
+import { HandshakeErrorCode, PeerHandshakeError } from '../handshake/handshake.error';
 
 const makeBytes = (length: number, start = 0): Uint8Array => {
     const bytes = new Uint8Array(length);

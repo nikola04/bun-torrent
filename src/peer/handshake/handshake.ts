@@ -5,9 +5,9 @@ import {
     PROTOCOL,
     PROTOCOL_BYTES,
     RESERVED_LENGTH,
-} from './consts';
+} from '../consts';
 import { HandshakeErrorCode, PeerHandshakeError } from './handshake.error';
-import type { PeerHandshake } from './types';
+import type { PeerHandshake } from '../types';
 
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 
