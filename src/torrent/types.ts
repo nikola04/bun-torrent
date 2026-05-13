@@ -1,3 +1,9 @@
+export type TorrentFile = {
+    path: string[];
+    length: number;
+    offset: number;
+};
+
 export type TorrentMetadata = {
     announce?: string;
     announceList: string[][];
@@ -6,4 +12,5 @@ export type TorrentMetadata = {
     pieceLength: number;
     pieces: Uint8Array[];
     length: number;
+    files: TorrentFile[];
 };

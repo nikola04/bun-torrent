@@ -3,7 +3,7 @@ import { fail, readText, readInteger, readBytes } from './helpers';
 import { computeInfoHash } from './info-hash';
 import { TorrentParseErrorCode } from './parser.error';
 import type { BDict, BValue } from './bencode/types';
-import type { TorrentMetadata } from './types';
+import type { TorrentFile, TorrentMetadata } from './types';
 
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 
@@ -32,18 +32,11 @@ export const parseTorrent = (input: Uint8Array): TorrentMetadata => {
 
     const info = infoValue;
 
-    if (info.has('files')) {
-        return fail(
-            TorrentParseErrorCode.MULTI_FILE_UNSUPPORTED,
-            'Multi-file torrents are not supported yet',
-            'files',
-        );
-    }
-
     const name = readText(info, 'name');
     const pieceLength = readInteger(info, 'piece length');
     const piecesBytes = readBytes(info, 'pieces');
-    const length = readInteger(info, 'length');
+    const files = readFiles(info, name);
+    const length = files.reduce((total, file) => total + file.length, 0);
 
     return {
         announce: root.has('announce') ? readText(root, 'announce') : undefined,
@@ -53,7 +46,101 @@ export const parseTorrent = (input: Uint8Array): TorrentMetadata => {
         pieceLength,
         pieces: splitPieces(piecesBytes),
         length,
+        files,
     };
+};
+
+const readFiles = (info: BDict, name: string): TorrentFile[] => {
+    const filesValue = info.get('files');
+    if (filesValue === undefined) {
+        const length = readInteger(info, 'length');
+        return [{ path: [name], length, offset: 0 }];
+    }
+
+    if (!Array.isArray(filesValue)) {
+        return fail(TorrentParseErrorCode.FIELD_INVALID, 'Expected files to be a list', 'files');
+    }
+
+    const files: TorrentFile[] = [];
+    let offset = 0;
+
+    for (let index = 0; index < filesValue.length; index++) {
+        const fileValue = filesValue[index]!;
+        if (!(fileValue instanceof Map)) {
+            return fail(
+                TorrentParseErrorCode.FIELD_INVALID,
+                'Expected file entry to be a dictionary',
+                `files[${index}]`,
+            );
+        }
+
+        const length = readFileLength(fileValue, index);
+        const path = readFilePath(fileValue, index);
+
+        files.push({ path, length, offset });
+        offset += length;
+    }
+
+    return files;
+};
+
+const readFileLength = (file: BDict, fileIndex: number): number => {
+    const value = file.get('length');
+    if (value === undefined) {
+        return fail(
+            TorrentParseErrorCode.FIELD_MISSING,
+            `Missing field: files[${fileIndex}].length`,
+            `files[${fileIndex}].length`,
+        );
+    }
+    if (typeof value !== 'number') {
+        return fail(
+            TorrentParseErrorCode.FIELD_INVALID,
+            `Expected integer: files[${fileIndex}].length`,
+            `files[${fileIndex}].length`,
+        );
+    }
+
+    return value;
+};
+
+const readFilePath = (file: BDict, fileIndex: number): string[] => {
+    const value = file.get('path');
+    if (value === undefined) {
+        return fail(
+            TorrentParseErrorCode.FIELD_MISSING,
+            `Missing field: files[${fileIndex}].path`,
+            `files[${fileIndex}].path`,
+        );
+    }
+    if (!Array.isArray(value) || value.length === 0) {
+        return fail(
+            TorrentParseErrorCode.FILE_PATH_INVALID,
+            'Expected file path to be a non-empty list',
+            `files[${fileIndex}].path`,
+        );
+    }
+
+    return value.map((segment, segmentIndex) => {
+        if (!(segment instanceof Uint8Array)) {
+            return fail(
+                TorrentParseErrorCode.FILE_PATH_INVALID,
+                'Expected file path segment to be bytes',
+                `files[${fileIndex}].path[${segmentIndex}]`,
+            );
+        }
+
+        const text = textDecoder.decode(segment);
+        if (text.length === 0 || text === '.' || text === '..' || text.includes('/')) {
+            return fail(
+                TorrentParseErrorCode.FILE_PATH_INVALID,
+                'Invalid file path segment',
+                `files[${fileIndex}].path[${segmentIndex}]`,
+            );
+        }
+
+        return text;
+    });
 };
 
 const readAnnounceList = (root: BDict): string[][] => {

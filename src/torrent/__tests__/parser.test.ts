@@ -77,8 +77,37 @@ describe('parseTorrent', () => {
         expect(metadata.pieces).toHaveLength(2);
         expect([...metadata.pieces[0]!]).toEqual([...makePieces(1)]);
         expect([...metadata.pieces[1]!]).toEqual([...makePieces(2).subarray(20, 40)]);
+        expect(metadata.files).toEqual([{ path: ['file.bin'], length: 12345, offset: 0 }]);
         expect(metadata.infoHash.byteLength).toBe(20);
         expect(bytesToHex(metadata.infoHash)).toBe('a6de37ba09e404285c68421a31e3320ae9758501');
+    });
+
+    test('parses multi-file torrent metadata', () => {
+        const metadata = parseTorrent(
+            makeTorrent({
+                info: {
+                    name: 'folder',
+                    length: undefined,
+                    files: [
+                        {
+                            length: 100,
+                            path: ['a.txt'],
+                        },
+                        {
+                            length: 250,
+                            path: ['nested', 'b.bin'],
+                        },
+                    ],
+                },
+            }),
+        );
+
+        expect(metadata.name).toBe('folder');
+        expect(metadata.length).toBe(350);
+        expect(metadata.files).toEqual([
+            { path: ['a.txt'], length: 100, offset: 0 },
+            { path: ['nested', 'b.bin'], length: 250, offset: 100 },
+        ]);
     });
 
     test('parses announce-list tiers', () => {
@@ -163,7 +192,33 @@ describe('parseTorrent', () => {
         );
     });
 
-    test('rejects multi-file torrents for now', () => {
+    test('rejects invalid multi-file entries', () => {
+        expectParseError(
+            makeTorrent({
+                info: {
+                    length: undefined,
+                    files: ['file.bin'],
+                },
+            }),
+            TorrentParseErrorCode.FIELD_INVALID,
+            'files[0]',
+        );
+
+        expectParseError(
+            makeTorrent({
+                info: {
+                    length: undefined,
+                    files: [
+                        {
+                            path: ['file.bin'],
+                        },
+                    ],
+                },
+            }),
+            TorrentParseErrorCode.FIELD_MISSING,
+            'files[0].length',
+        );
+
         expectParseError(
             makeTorrent({
                 info: {
@@ -171,13 +226,29 @@ describe('parseTorrent', () => {
                     files: [
                         {
                             length: 123,
-                            path: ['file.bin'],
+                            path: [],
                         },
                     ],
                 },
             }),
-            TorrentParseErrorCode.MULTI_FILE_UNSUPPORTED,
-            'files',
+            TorrentParseErrorCode.FILE_PATH_INVALID,
+            'files[0].path',
+        );
+
+        expectParseError(
+            makeTorrent({
+                info: {
+                    length: undefined,
+                    files: [
+                        {
+                            length: 123,
+                            path: ['..'],
+                        },
+                    ],
+                },
+            }),
+            TorrentParseErrorCode.FILE_PATH_INVALID,
+            'files[0].path[0]',
         );
     });
 
