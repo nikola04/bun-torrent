@@ -21,3 +21,6 @@ export const compareBytes = (left: Uint8Array, right: Uint8Array): number => {
 
     return left.byteLength - right.byteLength;
 };
+
+export const bytesToHex = (bytes: Uint8Array): string =>
+    [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
