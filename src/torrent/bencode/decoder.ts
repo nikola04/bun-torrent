@@ -1,5 +1,5 @@
 import { BencodeDecodeError, BencodeDecodeErrorCode } from './decoder.error';
-import { FLAG, type BInteger, type BValue } from './types';
+import { FLAG, type BDict, type BInteger, type BValue } from './types';
 
 export const decodeBencode = (input: Uint8Array): BValue => {
     const decoder = createDecoder({ input });
@@ -8,11 +8,14 @@ export const decodeBencode = (input: Uint8Array): BValue => {
 
 const createDecoder = ({
     input,
+    strict = true,
     maxBytesLength = 1024 * 1024,
 }: {
     input: Uint8Array;
+    strict?: boolean;
     maxBytesLength?: number;
 }) => {
+    const textDecoder = new TextDecoder('utf-8', { fatal: strict });
     const buffer = input;
     let offset = 0;
 
@@ -102,16 +105,56 @@ const createDecoder = ({
         return buffer.subarray(start, end);
     };
 
-    // const readList = (): Array<BValue> => {};
-    // const readDictionary = (): BDict => {};
+    const readList = (): Array<BValue> => {
+        if (char() !== FLAG.LIST)
+            fail(BencodeDecodeErrorCode.EXPECTED_LIST_FLAG, 'Not bencode list flag');
+        offset++;
+
+        const list: BValue[] = [];
+        while (hasRemainingData()) {
+            if (char() === FLAG.END) {
+                offset++;
+                return list;
+            }
+            list.push(readValue());
+        }
+
+        return fail(BencodeDecodeErrorCode.UNTERMINATED_LIST, "Bencode list did not end with 'e'");
+    };
+
+    const readDictionary = (): BDict => {
+        if (char() !== FLAG.DICTIONARY)
+            fail(BencodeDecodeErrorCode.EXPECTED_DICT_FLAG, 'Not bencode dictionary flag');
+        offset++;
+
+        const dict: BDict = new Map<string, BValue>();
+
+        while (hasRemainingData()) {
+            if (char() === FLAG.END) {
+                offset++;
+                return dict;
+            }
+            const key = textDecoder.decode(readBytes());
+            if (dict.has(key))
+                fail(BencodeDecodeErrorCode.DUPLICATE_KEY, 'Duplicate bencode dictionary key');
+
+            const value = readValue();
+            dict.set(key, value);
+        }
+
+        return fail(
+            BencodeDecodeErrorCode.UNTERMINATED_DICT,
+            "Bencode dictionary did not end with 'e'",
+        );
+    };
 
     const readValue = (): BValue => {
         const current = char();
 
         if (current === FLAG.INTEGER) return readInteger();
         if (isDigit(current)) return readBytes();
-        // if (current === FLAG.LIST) return readList();
-        // if (current === FLAG.DICTIONARY) return readDictionary();
+        if (current === FLAG.LIST) return readList();
+        if (current === FLAG.DICTIONARY) return readDictionary();
 
         return fail(BencodeDecodeErrorCode.BAD_FORMAT, 'Bad bencode format, failed to decode');
     };

@@ -28,6 +28,11 @@ const expectDecodedBytes = (value: string, expected: string): void => {
     expect([...Uint8Array.from(decoded as Uint8Array)]).toEqual([...bytes(expected)]);
 };
 
+const expectBytesValue = (value: unknown, expected: string): void => {
+    expect(value).toBeInstanceOf(Uint8Array);
+    expect([...Uint8Array.from(value as Uint8Array)]).toEqual([...bytes(expected)]);
+};
+
 describe('decodeBencode integer', () => {
     test('decodes zero', () => {
         expect(decodeBencode(bytes('i0e'))).toBe(0);
@@ -118,5 +123,90 @@ describe('decodeBencode bytes', () => {
 
     test('rejects trailing data after root bytes', () => {
         expectDecodeError('4:spame', BencodeDecodeErrorCode.TRAILING_DATA, 6);
+    });
+});
+
+describe('decodeBencode list', () => {
+    test('decodes empty lists', () => {
+        expect(decodeBencode(bytes('le'))).toEqual([]);
+    });
+
+    test('decodes lists with mixed values', () => {
+        const decoded = decodeBencode(bytes('l4:spami42ee'));
+
+        expect(Array.isArray(decoded)).toBe(true);
+
+        const list = decoded as unknown[];
+        expectBytesValue(list[0], 'spam');
+        expect(list[1]).toBe(42);
+    });
+
+    test('decodes nested lists', () => {
+        const decoded = decodeBencode(bytes('lli1ei2ee3:fooe'));
+
+        expect(Array.isArray(decoded)).toBe(true);
+
+        const list = decoded as unknown[];
+        expect(list[0]).toEqual([1, 2]);
+        expectBytesValue(list[1], 'foo');
+    });
+
+    test('rejects unterminated lists', () => {
+        expectDecodeError('l4:spam', BencodeDecodeErrorCode.UNTERMINATED_LIST, 7);
+        expectDecodeError('li1e', BencodeDecodeErrorCode.UNTERMINATED_LIST, 4);
+    });
+
+    test('rejects trailing data after root lists', () => {
+        expectDecodeError('lee', BencodeDecodeErrorCode.TRAILING_DATA, 2);
+    });
+});
+
+describe('decodeBencode dictionary', () => {
+    test('decodes empty dictionaries', () => {
+        const decoded = decodeBencode(bytes('de'));
+
+        expect(decoded).toBeInstanceOf(Map);
+        expect((decoded as Map<string, unknown>).size).toBe(0);
+    });
+
+    test('decodes dictionaries with mixed values', () => {
+        const decoded = decodeBencode(bytes('d3:foo3:bar3:numi42ee'));
+
+        expect(decoded).toBeInstanceOf(Map);
+
+        const dict = decoded as Map<string, unknown>;
+        expectBytesValue(dict.get('foo'), 'bar');
+        expect(dict.get('num')).toBe(42);
+    });
+
+    test('decodes nested dictionaries and lists', () => {
+        const decoded = decodeBencode(bytes('d4:dictd3:key5:valuee4:listli1e3:twoee'));
+
+        expect(decoded).toBeInstanceOf(Map);
+
+        const dict = decoded as Map<string, unknown>;
+        const nested = dict.get('dict') as Map<string, unknown>;
+        const list = dict.get('list') as unknown[];
+
+        expect(nested).toBeInstanceOf(Map);
+        expectBytesValue(nested.get('key'), 'value');
+        expect(list[0]).toBe(1);
+        expectBytesValue(list[1], 'two');
+    });
+
+    test('rejects duplicate keys', () => {
+        expectDecodeError('d3:fooi1e3:fooi2ee', BencodeDecodeErrorCode.DUPLICATE_KEY, 14);
+    });
+
+    test('rejects non-byte dictionary keys', () => {
+        expectDecodeError('di1e3:bare', BencodeDecodeErrorCode.EXPECTED_DIGIT, 1);
+    });
+
+    test('rejects unterminated dictionaries', () => {
+        expectDecodeError('d3:foo3:bar', BencodeDecodeErrorCode.UNTERMINATED_DICT, 11);
+    });
+
+    test('rejects trailing data after root dictionaries', () => {
+        expectDecodeError('dee', BencodeDecodeErrorCode.TRAILING_DATA, 2);
     });
 });
