@@ -19,7 +19,8 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier . --write",
         "format:check": "prettier . --check",
-        "check": "bun run typecheck && bun run lint && bun run format:check && bun test"
+        "check": "bun run typecheck && bun run lint && bun run format:check && bun test",
+        "app": "bun src/app.ts"
     },
     "engines": {
         "bun": ">=1.3.0"

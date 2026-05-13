@@ -15,6 +15,7 @@
         "verbatimModuleSyntax": true,
         "paths": {
             "@torrent/*": ["./src/torrent/*"],
+            "@peer/*": ["./src/peer/*"],
             "@utils/*": ["./src/utils/*"]
         },
         "noEmit": true,
