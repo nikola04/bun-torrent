@@ -53,7 +53,12 @@ const createDecoder = ({ input }: { input: Uint8Array }) => {
         if (sign === -1 && integer === 0)
             fail(BencodeDecodeErrorCode.NEGATIVE_ZERO, 'Bencode Integer cannot be -0');
 
-        return integer * sign;
+        integer = integer * sign;
+
+        if (!Number.isSafeInteger(integer))
+            fail(BencodeDecodeErrorCode.UNSAFE_INTEGER, 'Decoded Integer is not safe');
+
+        return integer;
     };
 
     // const readBytes = (): Uint8Array => {};

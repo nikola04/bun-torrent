@@ -58,6 +58,11 @@ describe('decodeBencode integer', () => {
         expectDecodeError('i-0', BencodeDecodeErrorCode.UNTERMINATED_INTEGER, 3);
     });
 
+    test('rejects integers outside the JavaScript safe integer range', () => {
+        expectDecodeError('i9007199254740992e', BencodeDecodeErrorCode.UNSAFE_INTEGER, 18);
+        expectDecodeError('i-9007199254740992e', BencodeDecodeErrorCode.UNSAFE_INTEGER, 19);
+    });
+
     test('rejects trailing data after a root integer', () => {
         expectDecodeError('i42ee', BencodeDecodeErrorCode.TRAILING_DATA, 4);
         expectDecodeError('i42e0:', BencodeDecodeErrorCode.TRAILING_DATA, 4);
