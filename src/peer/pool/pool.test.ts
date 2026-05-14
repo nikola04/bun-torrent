@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { PeerInfo } from '@tracker/announce';
-import { connectToPeers, openPeerPool, type PeerConnectionSession } from '.';
+import {
+    connectToPeers,
+    openPeerPool,
+    PeerPoolError,
+    PeerPoolErrorCode,
+    type PeerConnectionSession,
+} from '.';
+import { BunTorrentError } from '@utils/errors';
 
 const bytes20 = new Uint8Array(20);
 
@@ -65,7 +72,7 @@ describe('openPeerPool', () => {
     });
 
     test('rejects when minConnections cannot be satisfied', async () => {
-        await expect(
+        expect(
             openPeerPool(makePeers(2), {
                 infoHash: bytes20,
                 peerId: bytes20,
@@ -81,6 +88,25 @@ describe('openPeerPool', () => {
                 },
             }),
         ).rejects.toThrow('Not enough connectable peers');
+
+        expect(
+            openPeerPool(makePeers(2), {
+                infoHash: bytes20,
+                peerId: bytes20,
+                targetConnections: 2,
+                minConnections: 1,
+                maxConnecting: 2,
+                createSession(peer) {
+                    return new FakeSession(
+                        peer,
+                        { delayMs: 1, succeeds: false },
+                        { current: 0, max: 0 },
+                    );
+                },
+            }),
+        ).rejects.toMatchObject({
+            code: PeerPoolErrorCode.NO_CONNECTABLE_PEERS,
+        });
     });
 });
 
@@ -125,15 +151,29 @@ describe('connectToPeers', () => {
     });
 
     test('rejects invalid connection counts', async () => {
-        await expect(
+        expect(
             connectToPeers(makePeers(1), {
                 infoHash: bytes20,
                 peerId: bytes20,
                 targetConnections: 0,
             }),
         ).rejects.toThrow('targetConnections must be a positive integer');
+        expect(
+            connectToPeers(makePeers(1), {
+                infoHash: bytes20,
+                peerId: bytes20,
+                targetConnections: 0,
+            }),
+        ).rejects.toBeInstanceOf(PeerPoolError);
+        expect(
+            connectToPeers(makePeers(1), {
+                infoHash: bytes20,
+                peerId: bytes20,
+                targetConnections: 0,
+            }),
+        ).rejects.toBeInstanceOf(BunTorrentError);
 
-        await expect(
+        expect(
             connectToPeers(makePeers(1), {
                 infoHash: bytes20,
                 peerId: bytes20,
@@ -141,6 +181,16 @@ describe('connectToPeers', () => {
                 minConnections: 2,
             }),
         ).rejects.toThrow('minConnections cannot be greater than targetConnections');
+        expect(
+            connectToPeers(makePeers(1), {
+                infoHash: bytes20,
+                peerId: bytes20,
+                targetConnections: 1,
+                minConnections: 2,
+            }),
+        ).rejects.toMatchObject({
+            code: PeerPoolErrorCode.INVALID_OPTION,
+        });
     });
 });
 

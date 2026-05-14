@@ -35,3 +35,5 @@ const dedupePeers = (peers: PeerInfo[]) => {
         return true;
     });
 };
+
+export { TrackerError, TrackerErrorCode } from './tracker.error';

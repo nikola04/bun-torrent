@@ -3,6 +3,7 @@ import { openPeerPool } from '@peer/pool';
 import { parseTorrent } from '@torrent/parser/';
 import { Torrent } from '@torrent/session/index';
 import type { TorrentMetadata } from '@torrent/types';
+import { ClientError, ClientErrorCode } from './client.error';
 import { trackPeers } from './tracker';
 
 export enum DownloadState {
@@ -58,7 +59,10 @@ export const readTorrentFile = async (input: TorrentFileInput): Promise<Uint8Arr
     if (input instanceof Uint8Array) return input;
     if (input instanceof ArrayBuffer) return new Uint8Array(input);
 
-    throw new TypeError('Unsupported torrent file input');
+    throw new ClientError(
+        ClientErrorCode.UNSUPPORTED_TORRENT_FILE_INPUT,
+        'Unsupported torrent file input',
+    );
 };
 
 export { Client as TorrentClient };

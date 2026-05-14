@@ -1,5 +1,5 @@
 export { createPeerId } from './peer-id';
-export { PeerSession } from './session';
+export { PeerSession, PeerSessionError, PeerSessionErrorCode } from './session';
 export { encodeHandshake, decodeHandshake } from './handshake';
 export { HandshakeErrorCode, PeerHandshakeError } from './handshake/handshake.error';
 export {
@@ -9,7 +9,7 @@ export {
     PeerMessageErrorCode,
     PeerMessageId,
 } from './messages';
-export { connectToPeers, openPeerPool, PeerPool } from './pool';
+export { connectToPeers, openPeerPool, PeerPool, PeerPoolError, PeerPoolErrorCode } from './pool';
 
 export type { PeerHandshake } from './types';
 export type { PeerSessionConnectOptions } from './session';

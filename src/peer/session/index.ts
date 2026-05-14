@@ -2,7 +2,9 @@ import { HANDSHAKE_LENGTH } from '@peer/consts';
 import { decodeHandshake, encodeHandshake } from '@peer/handshake';
 import type { PeerInfo } from '@tracker/announce';
 import { concatBytes } from '@utils/buffers';
+import { BunTorrentError } from '@utils/errors';
 import { createConnection, type Socket } from 'node:net';
+import { PeerSessionError, PeerSessionErrorCode } from './session.error';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
 
@@ -36,14 +38,24 @@ export class PeerSession {
 
         return new Promise((resolve, reject) => {
             if (this.closed) {
-                reject(new Error('Peer session closed'));
+                reject(
+                    new PeerSessionError(
+                        PeerSessionErrorCode.CLOSED,
+                        'Peer session is already closed',
+                    ),
+                );
                 return;
             }
 
             let settled = false;
 
             const timeout = setTimeout(() => {
-                rejectOnce(new Error('Connection timeout'));
+                rejectOnce(
+                    new PeerSessionError(
+                        PeerSessionErrorCode.CONNECT_TIMEOUT,
+                        'Peer connection timed out',
+                    ),
+                );
             }, timeoutMs);
 
             const resolveOnce = () => {
@@ -63,7 +75,7 @@ export class PeerSession {
                 this.rejectPendingConnect = null;
                 this.socket?.destroy();
                 this.socket = null;
-                reject(toError(error));
+                reject(toPeerSessionError(error));
             };
 
             this.rejectPendingConnect = rejectOnce;
@@ -97,12 +109,24 @@ export class PeerSession {
                 }
             });
 
-            socket.once('timeout', () => rejectOnce(new Error('Connection timeout')));
+            socket.once('timeout', () =>
+                rejectOnce(
+                    new PeerSessionError(
+                        PeerSessionErrorCode.CONNECT_TIMEOUT,
+                        'Peer connection timed out',
+                    ),
+                ),
+            );
             socket.once('error', rejectOnce);
             socket.once('close', () => {
                 this.socket = null;
                 if (!this.handshakeDone) {
-                    rejectOnce(new Error('Socket closed before handshake'));
+                    rejectOnce(
+                        new PeerSessionError(
+                            PeerSessionErrorCode.SOCKET_CLOSED_BEFORE_HANDSHAKE,
+                            'Socket closed before handshake',
+                        ),
+                    );
                 }
             });
         });
@@ -112,7 +136,9 @@ export class PeerSession {
         this.closed = true;
         this.socket?.destroy();
         this.socket = null;
-        this.rejectPendingConnect?.(new Error('Peer session closed'));
+        this.rejectPendingConnect?.(
+            new PeerSessionError(PeerSessionErrorCode.CLOSED, 'Peer session closed'),
+        );
     }
 
     private handleData(
@@ -129,7 +155,12 @@ export class PeerSession {
             const handshake = decodeHandshake(this.buffer.slice(0, HANDSHAKE_LENGTH));
 
             if (!handshake.infoHash.every((b, i) => b === infoHash[i])) {
-                reject(new Error('Infohash mismatch'));
+                reject(
+                    new PeerSessionError(
+                        PeerSessionErrorCode.INFO_HASH_MISMATCH,
+                        'Handshake info hash does not match torrent info hash',
+                    ),
+                );
                 return;
             }
 
@@ -140,7 +171,13 @@ export class PeerSession {
     }
 }
 
-const toError = (error: unknown): Error => {
-    if (error instanceof Error) return error;
-    return new Error(String(error));
+const toPeerSessionError = (error: unknown): Error => {
+    if (error instanceof BunTorrentError) return error;
+    if (error instanceof Error) {
+        return new PeerSessionError(PeerSessionErrorCode.SOCKET_ERROR, error.message, error);
+    }
+
+    return new PeerSessionError(PeerSessionErrorCode.SOCKET_ERROR, String(error), error);
 };
+
+export { PeerSessionError, PeerSessionErrorCode } from './session.error';

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { encodeBencode, toBValue } from '@torrent/index';
 import { Client } from './client';
+import { ClientError, ClientErrorCode } from './client.error';
 
 const makeTorrent = (): Uint8Array =>
     encodeBencode(
@@ -48,5 +49,18 @@ describe('Client.inspect', () => {
 
         expect(metadata.name).toBe('file.bin');
         expect(metadata.announce).toBe('https://tracker.test/announce');
+    });
+
+    test('rejects unsupported torrent file input with a client error', async () => {
+        const client = new Client();
+
+        expect(
+            client.inspect({ torrentFile: null as unknown as Uint8Array }),
+        ).rejects.toMatchObject({
+            code: ClientErrorCode.UNSUPPORTED_TORRENT_FILE_INPUT,
+        });
+        expect(
+            client.inspect({ torrentFile: null as unknown as Uint8Array }),
+        ).rejects.toBeInstanceOf(ClientError);
     });
 });

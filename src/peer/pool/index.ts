@@ -1,5 +1,6 @@
 import { PeerSession, type PeerSessionConnectOptions } from '@peer/session';
 import type { PeerInfo } from '@tracker/announce';
+import { PeerPoolError, PeerPoolErrorCode } from './pool.error';
 
 const DEFAULT_MAX_CONNECTING = 20;
 const DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
@@ -190,7 +191,11 @@ export class PeerPool<TSession extends PeerConnectionSession = PeerSession> {
             return;
         }
 
-        const error = new AggregateError(this.errors, 'Not enough connectable peers');
+        const error = new PeerPoolError(
+            PeerPoolErrorCode.NO_CONNECTABLE_PEERS,
+            'Not enough connectable peers',
+            this.errors,
+        );
         for (const session of this.connected) session.close();
         this.rejectReadyIfNeeded(error);
         this.rejectDone(error);
@@ -223,7 +228,7 @@ export const openPeerPool = async <TSession extends PeerConnectionSession = Peer
     options: PeerPoolOptions<TSession>,
 ): Promise<PeerPool<TSession>> => {
     if (peers.length === 0) {
-        throw new Error('No peers to connect to');
+        throw new PeerPoolError(PeerPoolErrorCode.NO_PEERS, 'No peers to connect to');
     }
 
     const pool = new PeerPool(peers, normalizeOptions(options));
@@ -245,7 +250,10 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
     const targetConnections = assertPositiveInteger(options.targetConnections, 'targetConnections');
     const minConnections = assertPositiveInteger(options.minConnections ?? 1, 'minConnections');
     if (minConnections > targetConnections) {
-        throw new Error('minConnections cannot be greater than targetConnections');
+        throw new PeerPoolError(
+            PeerPoolErrorCode.INVALID_OPTION,
+            'minConnections cannot be greater than targetConnections',
+        );
     }
 
     return {
@@ -263,8 +271,13 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
 
 const assertPositiveInteger = (value: number, name: string): number => {
     if (!Number.isInteger(value) || value < 1) {
-        throw new Error(`${name} must be a positive integer`);
+        throw new PeerPoolError(
+            PeerPoolErrorCode.INVALID_OPTION,
+            `${name} must be a positive integer`,
+        );
     }
 
     return value;
 };
+
+export { PeerPoolError, PeerPoolErrorCode } from './pool.error';

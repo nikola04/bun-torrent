@@ -4,6 +4,7 @@
  */
 
 export * from './client';
+export { ClientError, ClientErrorCode } from './client.error';
 
 export {
     BencodeDecodeError,
@@ -32,11 +33,16 @@ export {
     PeerMessageErrorCode,
     PeerMessageId,
     PeerHandshakeError,
+    PeerPoolError,
+    PeerPoolErrorCode,
     PeerPool,
     PeerSession,
+    PeerSessionError,
+    PeerSessionErrorCode,
     openPeerPool,
     type PeerHandshake,
 } from '@peer/index';
+export { TrackerError, TrackerErrorCode } from './tracker';
 export type {
     BitfieldMessage,
     CancelMessage,

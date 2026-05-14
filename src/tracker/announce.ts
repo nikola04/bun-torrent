@@ -1,5 +1,6 @@
 import type { TorrentMetadata } from '@torrent/types';
 import { lookup } from 'dns/promises';
+import { TrackerError, TrackerErrorCode } from './tracker.error';
 export type PeerInfo = { ip: string; port: number };
 
 export const announceUdp = async (
@@ -69,7 +70,12 @@ export const announceUdp = async (
                     const peers = parseAnnounceResponse(bytes, announceTxId);
                     socket.close();
                     if (peers.length === 0) {
-                        rejectOnce(null);
+                        rejectOnce(
+                            new TrackerError(
+                                TrackerErrorCode.NO_PEERS,
+                                'Tracker returned no peers',
+                            ),
+                        );
                         return;
                     }
                     resolveOnce(peers);
@@ -88,7 +94,7 @@ export const announceUdp = async (
 
     const timeout = setTimeout(() => {
         socket.close();
-        rejectOnce(new Error('Tracker announce timeout'));
+        rejectOnce(new TrackerError(TrackerErrorCode.ANNOUNCE_TIMEOUT, 'Tracker announce timeout'));
     }, timeoutMs);
 
     socket.send(buildConnectRequest(connectTxId), port, host);
@@ -112,10 +118,22 @@ const buildConnectRequest = (txId: number): Uint8Array => {
 };
 
 const parseConnectResponse = (data: Uint8Array, txId: number) => {
-    if (data.byteLength < 16) throw new Error('Connect response too short');
+    if (data.byteLength < 16) {
+        throw new TrackerError(
+            TrackerErrorCode.CONNECT_RESPONSE_TOO_SHORT,
+            'Connect response too short',
+        );
+    }
     const view = new DataView(data.buffer, data.byteOffset);
-    if (view.getUint32(0, false) !== 0) throw new Error('Expected action=0');
-    if (view.getUint32(4, false) !== txId) throw new Error('Transaction ID mismatch');
+    if (view.getUint32(0, false) !== 0) {
+        throw new TrackerError(TrackerErrorCode.INVALID_ACTION, 'Expected tracker action=0');
+    }
+    if (view.getUint32(4, false) !== txId) {
+        throw new TrackerError(
+            TrackerErrorCode.TRANSACTION_ID_MISMATCH,
+            'Tracker transaction ID mismatch',
+        );
+    }
     return {
         connHigh: view.getUint32(8, false),
         connLow: view.getUint32(12, false),
@@ -180,10 +198,22 @@ const buildAnnounceRequest = (
 };
 
 const parseAnnounceResponse = (data: Uint8Array, txId: number): PeerInfo[] => {
-    if (data.byteLength < 20) throw new Error('Announce response too short');
+    if (data.byteLength < 20) {
+        throw new TrackerError(
+            TrackerErrorCode.ANNOUNCE_RESPONSE_TOO_SHORT,
+            'Announce response too short',
+        );
+    }
     const view = new DataView(data.buffer, data.byteOffset);
-    if (view.getUint32(0, false) !== 1) throw new Error('Expected action=1');
-    if (view.getUint32(4, false) !== txId) throw new Error('Transaction ID mismatch');
+    if (view.getUint32(0, false) !== 1) {
+        throw new TrackerError(TrackerErrorCode.INVALID_ACTION, 'Expected tracker action=1');
+    }
+    if (view.getUint32(4, false) !== txId) {
+        throw new TrackerError(
+            TrackerErrorCode.TRANSACTION_ID_MISMATCH,
+            'Tracker transaction ID mismatch',
+        );
+    }
 
     const peers: PeerInfo[] = [];
     for (let o = 20; o + 6 <= data.byteLength; o += 6) {
