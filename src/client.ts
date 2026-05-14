@@ -1,4 +1,5 @@
 import { createPeerId } from '@peer/peer-id';
+import { openPeerPool } from '@peer/pool';
 import { parseTorrent } from '@torrent/parser';
 import type { TorrentMetadata } from '@torrent/types';
 import { trackPeers } from './tracker';
@@ -17,7 +18,25 @@ export class Client {
         const meta = parseTorrent(bytes);
 
         const peers = await trackPeers({ meta, peerId: this.peerId });
-        console.log('Got peers:', peers);
+
+        const pool = await openPeerPool(peers, {
+            infoHash: meta.infoHash,
+            peerId: this.peerId,
+            targetConnections: 20,
+            minConnections: 1,
+            maxConnecting: 30,
+            timeoutMs: 3_000,
+        });
+
+        console.log('Handshake OK:', pool.size);
+
+        pool.onSession(() => {
+            console.log('Pool size:', pool.size);
+        });
+
+        const sessions = await pool.done;
+        console.log('Pool done:', sessions.length);
+        pool.close();
     }
 
     public async inspect(input: {

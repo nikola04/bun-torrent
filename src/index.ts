@@ -20,6 +20,7 @@ export {
     type TorrentMetadata,
 } from '@torrent/index';
 export {
+    connectToPeers,
     createPeerId,
     decodeHandshake,
     decodePeerMessage,
@@ -30,6 +31,9 @@ export {
     PeerMessageErrorCode,
     PeerMessageId,
     PeerHandshakeError,
+    PeerPool,
+    PeerSession,
+    openPeerPool,
     type PeerHandshake,
 } from '@peer/index';
 export type {
@@ -44,6 +48,9 @@ export type {
     PieceMessage,
     RequestMessage,
     UnchokeMessage,
+    PeerConnectionSession,
+    PeerPoolOptions,
+    PeerSessionConnectOptions,
 } from '@peer/index';
 
 export { BunTorrentError } from '@utils/errors';

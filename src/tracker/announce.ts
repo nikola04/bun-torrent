@@ -1,16 +1,18 @@
 import type { TorrentMetadata } from '@torrent/types';
 import { lookup } from 'dns/promises';
-type PeerInfo = { ip: string; port: number };
+export type PeerInfo = { ip: string; port: number };
 
 export const announceUdp = async (
     tracker: string,
     meta: TorrentMetadata,
     peerId: Uint8Array,
+    options: { timeoutMs?: number } = {},
 ): Promise<PeerInfo[]> => {
     const url = new URL(tracker);
     const { address: host } = await lookup(url.hostname);
 
     const port = parseInt(url.port, 10);
+    const timeoutMs = options.timeoutMs ?? 1_000;
 
     let phase: 'connect' | 'announce' = 'connect';
     const connectTxId = randomU32();
@@ -20,11 +22,28 @@ export const announceUdp = async (
 
     let resolveFn!: (peers: PeerInfo[]) => void;
     let rejectFn!: (err: unknown) => void;
+    let settled = false;
 
     const promise = new Promise<PeerInfo[]>((resolve, reject) => {
         resolveFn = resolve;
         rejectFn = reject;
     });
+
+    const clearAnnounceTimeout = () => clearTimeout(timeout);
+
+    const resolveOnce = (peers: PeerInfo[]) => {
+        if (settled) return;
+        settled = true;
+        clearAnnounceTimeout();
+        resolveFn(peers);
+    };
+
+    const rejectOnce = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearAnnounceTimeout();
+        rejectFn(error);
+    };
 
     const socket = await Bun.udpSocket({
         socket: {
@@ -50,22 +69,27 @@ export const announceUdp = async (
                     const peers = parseAnnounceResponse(bytes, announceTxId);
                     socket.close();
                     if (peers.length === 0) {
-                        rejectFn(null);
+                        rejectOnce(null);
                         return;
                     }
-                    resolveFn(peers);
+                    resolveOnce(peers);
                 } catch (err) {
                     socket.close();
-                    rejectFn(err);
+                    rejectOnce(err);
                 }
             },
 
             error(socket, err) {
                 socket.close();
-                rejectFn(err);
+                rejectOnce(err);
             },
         },
     });
+
+    const timeout = setTimeout(() => {
+        socket.close();
+        rejectOnce(new Error('Tracker announce timeout'));
+    }, timeoutMs);
 
     socket.send(buildConnectRequest(connectTxId), port, host);
 
