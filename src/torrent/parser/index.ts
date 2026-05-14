@@ -1,9 +1,9 @@
-import { decodeBencode } from './bencode';
+import { decodeBencode } from '../bencode';
 import { fail, readText, readInteger, readBytes } from './helpers';
 import { computeInfoHash } from './info-hash';
 import { TorrentParseErrorCode } from './parser.error';
-import type { BDict, BValue } from './bencode/types';
-import type { TorrentFile, TorrentMetadata } from './types';
+import type { BDict, BValue } from '../bencode/types';
+import type { TorrentFile, TorrentMetadata } from '../types';
 
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 

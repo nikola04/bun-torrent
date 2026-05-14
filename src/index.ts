@@ -14,6 +14,7 @@ export {
     decodeBencode,
     encodeBencode,
     parseTorrent,
+    Torrent,
     toBValue,
     TorrentParseError,
     TorrentParseErrorCode,
@@ -54,4 +55,12 @@ export type {
 } from '@peer/index';
 
 export { BunTorrentError } from '@utils/errors';
-export type { BBytes, BDict, BInteger, BList, BValue, BencodeInput } from '@torrent/index';
+export type {
+    BBytes,
+    BDict,
+    BInteger,
+    BList,
+    BValue,
+    BencodeInput,
+    TorrentStats,
+} from '@torrent/index';

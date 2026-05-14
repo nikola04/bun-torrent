@@ -77,6 +77,26 @@ export class PeerPool<TSession extends PeerConnectionSession = PeerSession> {
         return this.connected.length;
     }
 
+    public get connecting(): number {
+        return this.inFlight.size;
+    }
+
+    public get attempted(): number {
+        return this.nextPeerIndex;
+    }
+
+    public get failed(): number {
+        return this.errors.length;
+    }
+
+    public get totalPeers(): number {
+        return this.peers.length;
+    }
+
+    public get targetConnections(): number {
+        return this.options.targetConnections;
+    }
+
     public get sessions(): TSession[] {
         return [...this.connected];
     }

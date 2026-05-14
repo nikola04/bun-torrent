@@ -1,5 +1,6 @@
-export { parseTorrent } from './parser';
-export { computeInfoHash } from './info-hash';
+export { parseTorrent } from './parser/index';
+export { computeInfoHash } from './parser/info-hash';
+export { Torrent } from './session/index';
 
 export { decodeBencode, encodeBencode, toBValue } from './bencode';
 export {
@@ -8,7 +9,8 @@ export {
     BencodeEncodeError,
     BencodeEncodeErrorCode,
 } from './bencode';
-export { TorrentParseError, TorrentParseErrorCode } from './parser.error';
+export { TorrentParseError, TorrentParseErrorCode } from './parser/parser.error';
 
 export type { BBytes, BDict, BInteger, BList, BValue, BencodeInput } from './bencode';
+export type { TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';

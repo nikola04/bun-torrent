@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { bytesToHex } from '@utils/buffers';
 import { toBValue } from '../bencode';
 import type { BDict, BValue } from '../bencode/types';
-import { computeInfoHash } from '../info-hash';
+import { computeInfoHash } from './info-hash';
 
 describe('computeInfoHash', () => {
     test('hashes the canonical bencoded info dictionary', () => {

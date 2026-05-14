@@ -1,8 +1,15 @@
 import { createPeerId } from '@peer/peer-id';
 import { openPeerPool } from '@peer/pool';
-import { parseTorrent } from '@torrent/parser';
+import { parseTorrent } from '@torrent/parser/';
+import { Torrent } from '@torrent/session/index';
 import type { TorrentMetadata } from '@torrent/types';
 import { trackPeers } from './tracker';
+
+export enum DownloadState {
+    PARSING = 'parsing',
+    TRACKING = 'tracking',
+    CONNECTING = 'connecting',
+}
 
 export class Client {
     private readonly peerId: Uint8Array;
@@ -11,14 +18,19 @@ export class Client {
         this.peerId = createPeerId();
     }
 
-    public async download(input: {
-        torrentFile: string | Uint8Array | ArrayBuffer;
-    }): Promise<void> {
-        const bytes = await readTorrentFile(input.torrentFile);
-        const meta = parseTorrent(bytes);
+    public async download(
+        input: {
+            torrentFile: string | Uint8Array | ArrayBuffer;
+        },
+        listeners?: { onChangeState?: (state: DownloadState) => unknown },
+    ): Promise<Torrent> {
+        listeners?.onChangeState?.(DownloadState.PARSING);
+        const meta = await this.inspect(input);
 
+        listeners?.onChangeState?.(DownloadState.TRACKING);
         const peers = await trackPeers({ meta, peerId: this.peerId });
 
+        listeners?.onChangeState?.(DownloadState.CONNECTING);
         const pool = await openPeerPool(peers, {
             infoHash: meta.infoHash,
             peerId: this.peerId,
@@ -28,15 +40,7 @@ export class Client {
             timeoutMs: 3_000,
         });
 
-        console.log('Handshake OK:', pool.size);
-
-        pool.onSession(() => {
-            console.log('Pool size:', pool.size);
-        });
-
-        const sessions = await pool.done;
-        console.log('Pool done:', sessions.length);
-        pool.close();
+        return new Torrent(meta, pool);
     }
 
     public async inspect(input: {

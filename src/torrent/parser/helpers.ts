@@ -1,6 +1,6 @@
-import type { BDict, BValue } from './bencode/types';
-import { TorrentParseError, TorrentParseErrorCode } from './parser.error';
+import type { BDict, BValue } from '../bencode/types';
 
+import { TorrentParseError, TorrentParseErrorCode } from './parser.error';
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 
 export const expectField = (dict: BDict, field: string): BValue => {
