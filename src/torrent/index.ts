@@ -11,6 +11,12 @@ export {
     splitPieceIntoRequests,
     validatePiece,
 } from './pieces';
+export {
+    planPieceWrites,
+    TorrentStorageError,
+    TorrentStorageErrorCode,
+    writePiece,
+} from './storage';
 
 export { decodeBencode, encodeBencode, toBValue } from './bencode';
 export {
@@ -33,5 +39,6 @@ export type {
     PieceStatus,
     PieceValidationResult,
 } from './pieces';
+export type { FileWrite, WritePieceOptions } from './storage';
 export type { TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';
