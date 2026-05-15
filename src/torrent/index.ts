@@ -9,6 +9,7 @@ export {
     PiecePlannerError,
     PiecePlannerErrorCode,
     splitPieceIntoRequests,
+    validatePiece,
 } from './pieces';
 
 export { decodeBencode, encodeBencode, toBValue } from './bencode';
@@ -30,6 +31,7 @@ export type {
     PiecePlannerOptions,
     PieceProgress,
     PieceStatus,
+    PieceValidationResult,
 } from './pieces';
 export type { TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';
