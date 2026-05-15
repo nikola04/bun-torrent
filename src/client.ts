@@ -4,7 +4,7 @@ import { parseTorrent } from '@torrent/parser/';
 import { Torrent } from '@torrent/session/index';
 import type { TorrentMetadata } from '@torrent/types';
 import { ClientError, ClientErrorCode } from './client.error';
-import { trackPeers } from './tracker';
+import { trackPeers, TrackerError, TrackerErrorCode } from './tracker';
 
 export enum DownloadState {
     PARSING = 'parsing',
@@ -23,22 +23,22 @@ export class Client {
         input: {
             torrentFile: string | Uint8Array | ArrayBuffer;
         },
-        listeners?: { onChangeState?: (state: DownloadState) => unknown },
+        options: DownloadOptions = {},
     ): Promise<Torrent> {
-        listeners?.onChangeState?.(DownloadState.PARSING);
+        options.onChangeState?.(DownloadState.PARSING);
         const meta = await this.inspect(input);
 
-        listeners?.onChangeState?.(DownloadState.TRACKING);
-        const peers = await trackPeers({ meta, peerId: this.peerId });
+        options.onChangeState?.(DownloadState.TRACKING);
+        const peers = await this.trackPeers(meta, options);
 
-        listeners?.onChangeState?.(DownloadState.CONNECTING);
+        options.onChangeState?.(DownloadState.CONNECTING);
         const pool = await openPeerPool(peers, {
             infoHash: meta.infoHash,
             peerId: this.peerId,
             targetConnections: 20,
-            minConnections: 1,
+            minConnections: options.minConnections ?? 0,
             maxConnecting: 30,
-            timeoutMs: 3_000,
+            timeoutMs: 5_000,
         });
 
         return new Torrent(meta, pool);
@@ -50,7 +50,35 @@ export class Client {
         const bytes = await readTorrentFile(input.torrentFile);
         return parseTorrent(bytes);
     }
+
+    private async trackPeers(meta: TorrentMetadata, options: DownloadOptions): Promise<PeerInfo[]> {
+        try {
+            return await trackPeers({
+                meta,
+                peerId: this.peerId,
+                announcePort: options.announcePort,
+                timeoutMs: 5_000,
+            });
+        } catch (error) {
+            if (isNonFatalTrackerError(error)) return [];
+            throw error;
+        }
+    }
 }
+
+export type DownloadOptions = {
+    announcePort?: number;
+    minConnections?: number;
+    onChangeState?: (state: DownloadState) => unknown;
+};
+
+type PeerInfo = Awaited<ReturnType<typeof trackPeers>>[number];
+
+const isNonFatalTrackerError = (error: unknown): error is TrackerError =>
+    error instanceof TrackerError &&
+    (error.code === TrackerErrorCode.ANNOUNCE_FAILED ||
+        error.code === TrackerErrorCode.NO_PEERS ||
+        error.code === TrackerErrorCode.NO_SUPPORTED_TRACKERS);
 
 export type TorrentFileInput = string | Uint8Array | ArrayBuffer;
 

@@ -1,29 +1,70 @@
 import type { TorrentMetadata } from '@torrent/types';
-import { announceUdp, type PeerInfo } from './announce';
+import { announceHttp } from './http';
+import { DEFAULT_ANNOUNCE_PORT, type AnnounceTracker, type PeerInfo } from './types';
+import { announceUdp } from './udp';
+import { TrackerError, TrackerErrorCode } from './tracker.error';
 
-const DEFAULT_TRACKER_TIMEOUT_MS = 3_000;
+const DEFAULT_TRACKER_TIMEOUT_MS = 5_000;
 
 export const trackPeers = async ({
     meta,
     peerId,
+    announcePort = DEFAULT_ANNOUNCE_PORT,
     timeoutMs = DEFAULT_TRACKER_TIMEOUT_MS,
+    udp = announceUdp,
+    http = announceHttp,
 }: {
     meta: TorrentMetadata;
     peerId: Uint8Array;
+    announcePort?: number;
     timeoutMs?: number;
+    udp?: AnnounceTracker;
+    http?: AnnounceTracker;
 }): Promise<PeerInfo[]> => {
-    const trackers = [meta.announce, ...meta.announceList.flat()].filter(Boolean) as string[];
+    validateAnnouncePort(announcePort);
 
-    const udpTrackers = trackers.filter((t) => t.startsWith('udp://'));
+    const trackers = [meta.announce, ...meta.announceList.flat()].filter(Boolean) as string[];
+    const announceRequests = trackers.flatMap((tracker) => {
+        if (tracker.startsWith('udp://')) return [{ tracker, announce: udp }];
+        if (tracker.startsWith('http://') || tracker.startsWith('https://')) {
+            return [{ tracker, announce: http }];
+        }
+        return [];
+    });
+
+    if (announceRequests.length === 0) {
+        throw new TrackerError(
+            TrackerErrorCode.NO_SUPPORTED_TRACKERS,
+            'No supported trackers found',
+        );
+    }
 
     const results = await Promise.allSettled(
-        udpTrackers.map((tracker) =>
-            announceUdp(tracker, meta, peerId, { timeoutMs }).catch(() => []),
+        announceRequests.map(({ tracker, announce }) =>
+            announce(tracker, meta, peerId, { announcePort, timeoutMs }),
         ),
     );
 
     const peers = results.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
-    return dedupePeers(peers);
+    const dedupedPeers = dedupePeers(peers);
+
+    if (dedupedPeers.length > 0) {
+        return dedupedPeers;
+    }
+
+    const causes = results.flatMap((result) =>
+        result.status === 'rejected' ? [result.reason] : [],
+    );
+
+    if (causes.every(isTrackerNoPeersError)) {
+        throw new TrackerError(TrackerErrorCode.NO_PEERS, 'Trackers returned no peers', causes);
+    }
+
+    throw new TrackerError(
+        TrackerErrorCode.ANNOUNCE_FAILED,
+        'All tracker announces failed',
+        causes,
+    );
 };
 
 const dedupePeers = (peers: PeerInfo[]) => {
@@ -36,4 +77,17 @@ const dedupePeers = (peers: PeerInfo[]) => {
     });
 };
 
+const isTrackerNoPeersError = (error: unknown): error is TrackerError =>
+    error instanceof TrackerError && error.code === TrackerErrorCode.NO_PEERS;
+
+const validateAnnouncePort = (port: number): void => {
+    if (Number.isInteger(port) && port >= 1 && port <= 65_535) return;
+
+    throw new TrackerError(
+        TrackerErrorCode.INVALID_PORT,
+        'Announce port must be an integer between 1 and 65535',
+    );
+};
+
 export { TrackerError, TrackerErrorCode } from './tracker.error';
+export type { PeerInfo } from './types';

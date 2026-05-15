@@ -1,6 +1,6 @@
 import { HANDSHAKE_LENGTH } from '@peer/consts';
 import { decodeHandshake, encodeHandshake } from '@peer/handshake';
-import type { PeerInfo } from '@tracker/announce';
+import type { PeerInfo } from '@tracker/types';
 import { concatBytes } from '@utils/buffers';
 import { BunTorrentError } from '@utils/errors';
 import { createConnection, type Socket } from 'node:net';

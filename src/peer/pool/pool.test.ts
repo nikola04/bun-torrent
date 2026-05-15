@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { PeerInfo } from '@tracker/announce';
+import type { PeerInfo } from '@tracker/types';
 import {
     connectToPeers,
     openPeerPool,
@@ -107,6 +107,41 @@ describe('openPeerPool', () => {
         ).rejects.toMatchObject({
             code: PeerPoolErrorCode.NO_CONNECTABLE_PEERS,
         });
+    });
+
+    test('allows zero minimum connections and reports failed attempts through stats', async () => {
+        const pool = await openPeerPool(makePeers(2), {
+            infoHash: bytes20,
+            peerId: bytes20,
+            targetConnections: 2,
+            minConnections: 0,
+            maxConnecting: 2,
+            createSession(peer) {
+                return new FakeSession(
+                    peer,
+                    { delayMs: 1, succeeds: false },
+                    { current: 0, max: 0 },
+                );
+            },
+        });
+
+        expect(pool.size).toBe(0);
+
+        const sessions = await pool.done;
+        expect(sessions).toEqual([]);
+        expect(pool.failed).toBe(2);
+    });
+
+    test('allows empty peer lists when zero connections are required', async () => {
+        const pool = await openPeerPool([], {
+            infoHash: bytes20,
+            peerId: bytes20,
+            targetConnections: 2,
+            minConnections: 0,
+        });
+
+        expect(pool.totalPeers).toBe(0);
+        expect(await pool.done).toEqual([]);
     });
 });
 

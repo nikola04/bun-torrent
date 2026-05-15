@@ -1,19 +1,20 @@
 import type { TorrentMetadata } from '@torrent/types';
 import { lookup } from 'dns/promises';
+import { DEFAULT_ANNOUNCE_PORT, type AnnounceOptions, type PeerInfo } from './types';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
-export type PeerInfo = { ip: string; port: number };
 
 export const announceUdp = async (
     tracker: string,
     meta: TorrentMetadata,
     peerId: Uint8Array,
-    options: { timeoutMs?: number } = {},
+    options: AnnounceOptions = {},
 ): Promise<PeerInfo[]> => {
     const url = new URL(tracker);
     const { address: host } = await lookup(url.hostname);
 
-    const port = parseInt(url.port, 10);
+    const trackerPort = parseInt(url.port, 10);
     const timeoutMs = options.timeoutMs ?? 1_000;
+    const announcePort = options.announcePort ?? DEFAULT_ANNOUNCE_PORT;
 
     let phase: 'connect' | 'announce' = 'connect';
     const connectTxId = randomU32();
@@ -59,8 +60,15 @@ export const announceUdp = async (
                         phase = 'announce';
 
                         socket.send(
-                            buildAnnounceRequest(connHigh, connLow, announceTxId, meta, peerId),
-                            port,
+                            buildAnnounceRequest(
+                                connHigh,
+                                connLow,
+                                announceTxId,
+                                meta,
+                                peerId,
+                                announcePort,
+                            ),
+                            trackerPort,
                             host,
                         );
 
@@ -97,7 +105,7 @@ export const announceUdp = async (
         rejectOnce(new TrackerError(TrackerErrorCode.ANNOUNCE_TIMEOUT, 'Tracker announce timeout'));
     }, timeoutMs);
 
-    socket.send(buildConnectRequest(connectTxId), port, host);
+    socket.send(buildConnectRequest(connectTxId), trackerPort, host);
 
     return promise;
 };
@@ -146,6 +154,7 @@ const buildAnnounceRequest = (
     txId: number,
     meta: TorrentMetadata,
     peerId: Uint8Array,
+    announcePort: number,
 ): Uint8Array => {
     const buf = new Uint8Array(98);
     const view = new DataView(buf.buffer);
@@ -192,7 +201,7 @@ const buildAnnounceRequest = (
     o += 4; // key
     view.setInt32(o, -1, false);
     o += 4; // num_want = -1 (default)
-    view.setUint16(o, 6881, false); // port
+    view.setUint16(o, announcePort, false); // client listen port
 
     return buf;
 };

@@ -1,5 +1,5 @@
 import { PeerSession, type PeerSessionConnectOptions } from '@peer/session';
-import type { PeerInfo } from '@tracker/announce';
+import type { PeerInfo } from '@tracker/types';
 import { PeerPoolError, PeerPoolErrorCode } from './pool.error';
 
 const DEFAULT_MAX_CONNECTING = 20;
@@ -70,6 +70,7 @@ export class PeerPool<TSession extends PeerConnectionSession = PeerSession> {
     }
 
     public start(): void {
+        this.resolveReadyIfNeeded();
         this.connectNext();
         this.finishIfDone();
     }
@@ -227,11 +228,13 @@ export const openPeerPool = async <TSession extends PeerConnectionSession = Peer
     peers: PeerInfo[],
     options: PeerPoolOptions<TSession>,
 ): Promise<PeerPool<TSession>> => {
-    if (peers.length === 0) {
+    const normalizedOptions = normalizeOptions(options);
+
+    if (peers.length === 0 && normalizedOptions.minConnections > 0) {
         throw new PeerPoolError(PeerPoolErrorCode.NO_PEERS, 'No peers to connect to');
     }
 
-    const pool = new PeerPool(peers, normalizeOptions(options));
+    const pool = new PeerPool(peers, normalizedOptions);
     pool.start();
     return await pool.ready;
 };
@@ -248,7 +251,7 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
     options: PeerPoolOptions<TSession>,
 ): NormalizedPeerPoolOptions<TSession> => {
     const targetConnections = assertPositiveInteger(options.targetConnections, 'targetConnections');
-    const minConnections = assertPositiveInteger(options.minConnections ?? 1, 'minConnections');
+    const minConnections = assertNonNegativeInteger(options.minConnections ?? 1, 'minConnections');
     if (minConnections > targetConnections) {
         throw new PeerPoolError(
             PeerPoolErrorCode.INVALID_OPTION,
@@ -274,6 +277,17 @@ const assertPositiveInteger = (value: number, name: string): number => {
         throw new PeerPoolError(
             PeerPoolErrorCode.INVALID_OPTION,
             `${name} must be a positive integer`,
+        );
+    }
+
+    return value;
+};
+
+const assertNonNegativeInteger = (value: number, name: string): number => {
+    if (!Number.isInteger(value) || value < 0) {
+        throw new PeerPoolError(
+            PeerPoolErrorCode.INVALID_OPTION,
+            `${name} must be a non-negative integer`,
         );
     }
 

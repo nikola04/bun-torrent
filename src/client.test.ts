@@ -4,23 +4,35 @@ import { encodeBencode, toBValue } from '@torrent/index';
 import { Client } from './client';
 import { ClientError, ClientErrorCode } from './client.error';
 
-const makeTorrent = (): Uint8Array =>
-    encodeBencode(
-        toBValue({
-            announce: 'https://tracker.test/announce',
-            info: {
-                length: 12345,
-                name: 'file.bin',
-                'piece length': 16384,
-                pieces: new Uint8Array(20),
-            },
-        }),
-    );
+const makeTorrent = ({ announce }: { announce?: string } = {}): Uint8Array => {
+    const root: {
+        announce?: string;
+        info: {
+            length: number;
+            name: string;
+            'piece length': number;
+            pieces: Uint8Array;
+        };
+    } = {
+        info: {
+            length: 12345,
+            name: 'file.bin',
+            'piece length': 16384,
+            pieces: new Uint8Array(20),
+        },
+    };
+
+    if (announce !== undefined) root.announce = announce;
+
+    return encodeBencode(toBValue(root));
+};
 
 describe('Client.inspect', () => {
     test('inspects torrent metadata from Uint8Array input', async () => {
         const client = new Client();
-        const metadata = await client.inspect({ torrentFile: makeTorrent() });
+        const metadata = await client.inspect({
+            torrentFile: makeTorrent({ announce: 'https://tracker.test/announce' }),
+        });
 
         expect(metadata.name).toBe('file.bin');
         expect(metadata.length).toBe(12345);
@@ -29,7 +41,7 @@ describe('Client.inspect', () => {
 
     test('inspects torrent metadata from ArrayBuffer input', async () => {
         const client = new Client();
-        const torrent = makeTorrent();
+        const torrent = makeTorrent({ announce: 'https://tracker.test/announce' });
         const arrayBuffer = torrent.buffer.slice(
             torrent.byteOffset,
             torrent.byteOffset + torrent.byteLength,
@@ -42,7 +54,7 @@ describe('Client.inspect', () => {
 
     test('inspects torrent metadata from file path input', async () => {
         const path = '/private/tmp/bun-torrent-client-inspect.torrent';
-        await Bun.write(path, makeTorrent());
+        await Bun.write(path, makeTorrent({ announce: 'https://tracker.test/announce' }));
 
         const client = new Client();
         const metadata = await client.inspect({ torrentFile: path });
@@ -62,5 +74,25 @@ describe('Client.inspect', () => {
         expect(
             client.inspect({ torrentFile: null as unknown as Uint8Array }),
         ).rejects.toBeInstanceOf(ClientError);
+    });
+});
+
+describe('Client.download', () => {
+    test('returns an empty torrent instead of rejecting when no trackers are available', async () => {
+        const states: string[] = [];
+        const client = new Client();
+
+        const torrent = await client.download(
+            { torrentFile: makeTorrent() },
+            { onChangeState: (state) => states.push(state) },
+        );
+
+        expect(states).toEqual(['parsing', 'tracking', 'connecting']);
+        expect(torrent.stats).toMatchObject({
+            peers: 0,
+            connections: 0,
+            failedConnections: 0,
+        });
+        await torrent.done;
     });
 });
