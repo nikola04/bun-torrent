@@ -1,5 +1,5 @@
 import type { DownloadProgress, DownloadProgressListener } from '../download';
-import type { TorrentMetadata } from '../types';
+import type { TorrentFile, TorrentMetadata } from '../types';
 
 export type TorrentStats = {
     peers: number;
@@ -23,6 +23,11 @@ export type TorrentEventName = keyof TorrentEventMap;
 export type TorrentEventListener<TEvent extends TorrentEventName> = (
     ...args: TorrentEventMap[TEvent]
 ) => void;
+
+export type TorrentFiles = {
+    included: TorrentFile[];
+    excluded: TorrentFile[];
+};
 
 type TorrentPeerPool = {
     readonly done: Promise<unknown>;
@@ -52,6 +57,7 @@ export class Torrent {
         public readonly metadata: TorrentMetadata,
         private readonly peerPool: TorrentPeerPool,
         private readonly downloadManager?: TorrentDownloadManager,
+        private readonly selectedFiles?: Set<string> | null,
     ) {
         this.downloadManager?.onProgress((progress) => this.emit('progress', progress));
         this.downloadManager?.start();
@@ -88,8 +94,16 @@ export class Torrent {
         );
     }
 
-    public get files() {
-        return this.metadata.files;
+    public get files(): TorrentFiles {
+        if (!this.selectedFiles) return { included: this.metadata.files, excluded: [] };
+
+        const included = this.metadata.files.filter((f) =>
+            this.selectedFiles?.has(f.path.join('/')),
+        );
+        const excluded = this.metadata.files.filter(
+            (f) => !this.selectedFiles?.has(f.path.join('/')),
+        );
+        return { included, excluded };
     }
 
     public on<TEvent extends TorrentEventName>(

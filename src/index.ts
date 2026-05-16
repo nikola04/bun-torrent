@@ -19,6 +19,7 @@ export {
     toBValue,
     TorrentParseError,
     TorrentParseErrorCode,
+    type TorrentFileSelection,
     type TorrentMetadata,
 } from '@torrent/index';
 export {

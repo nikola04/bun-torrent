@@ -1,3 +1,5 @@
+import type { TorrentFileSelection } from '../file-selection';
+
 export type FileWrite = {
     path: string[];
     fileOffset: number;
@@ -6,5 +8,6 @@ export type FileWrite = {
 };
 
 export type WritePieceOptions = {
+    files?: TorrentFileSelection;
     outputDirectory: string;
 };

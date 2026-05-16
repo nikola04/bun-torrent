@@ -2,6 +2,7 @@ import type { PieceMessage, RequestMessage } from '@peer/messages';
 
 export type PiecePlannerOptions = {
     blockLength?: number;
+    pieceIndexes?: Iterable<number>;
 };
 
 export type PieceBlockRequest = RequestMessage;
@@ -20,6 +21,7 @@ export type PieceProgress = {
 export type PiecePlanner = {
     readonly complete: boolean;
     readonly completedPieces: number;
+    readonly pieceIndexes: readonly number[];
     readonly totalPieces: number;
 
     getProgress(pieceIndex: number): PieceProgress;

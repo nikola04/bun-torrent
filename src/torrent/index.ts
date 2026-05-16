@@ -1,6 +1,12 @@
 export { parseTorrent } from './parser/index';
 export { computeInfoHash } from './parser/info-hash';
 export { Torrent } from './session/index';
+export {
+    getSelectedPieceIndexes,
+    getTorrentFilePathKey,
+    getUnknownSelectedFiles,
+    normalizeTorrentFileSelection,
+} from './file-selection';
 export { DownloadManager } from './download';
 export {
     DEFAULT_BLOCK_LENGTH,
@@ -49,6 +55,7 @@ export type {
     DownloadProgressEventMode,
     DownloadProgressListener,
 } from './download';
+export type { TorrentFileSelection } from './file-selection';
 export type { FileWrite, WritePieceOptions } from './storage';
 export type { TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';

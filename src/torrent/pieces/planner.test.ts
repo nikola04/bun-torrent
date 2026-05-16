@@ -148,6 +148,24 @@ describe('DefaultPiecePlanner', () => {
         });
     });
 
+    test('schedules only selected pieces when configured', () => {
+        const planner = createPiecePlanner(
+            makeMetadata({ length: 12, pieceLength: 4, pieces: 3 }),
+            {
+                pieceIndexes: [1],
+            },
+        );
+
+        expect(planner.totalPieces).toBe(1);
+        expect(planner.pieceIndexes).toEqual([1]);
+        expect(planner.nextRequest()).toEqual({
+            type: 'request',
+            pieceIndex: 1,
+            offset: 0,
+            length: 4,
+        });
+    });
+
     test('resets pending requests', () => {
         const planner = createPiecePlanner(makeMetadata({ length: 4, pieceLength: 4, pieces: 1 }), {
             blockLength: 2,

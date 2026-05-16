@@ -117,6 +117,31 @@ describe('Torrent', () => {
         expect(torrent.progress).toEqual(manager.progress);
         expect(events).toEqual([manager.progress]);
     });
+
+    test('returns all files as included when no file selection is provided', () => {
+        const pool = new FakePeerPool();
+        const metadata = makeMultiFileMetadata();
+        const torrent = new Torrent(metadata, pool);
+
+        expect(torrent.files).toEqual({
+            included: metadata.files,
+            excluded: [],
+        });
+    });
+
+    test('splits selected files into included and excluded lists', () => {
+        const pool = new FakePeerPool();
+        const metadata = makeMultiFileMetadata();
+        const torrent = new Torrent(metadata, pool, undefined, new Set(['video.mp4']));
+
+        expect(torrent.files).toEqual({
+            included: [{ path: ['video.mp4'], length: 8, offset: 2 }],
+            excluded: [
+                { path: ['subtitle.srt'], length: 2, offset: 0 },
+                { path: ['poster.jpg'], length: 4, offset: 10 },
+            ],
+        });
+    });
 });
 
 class FakePeerPool {
@@ -213,4 +238,19 @@ const makeMetadata = (): TorrentMetadata => ({
     pieces: [new Uint8Array(20)],
     length: 16_384,
     files: [{ path: ['file.bin'], length: 16_384, offset: 0 }],
+});
+
+const makeMultiFileMetadata = (): TorrentMetadata => ({
+    announce: 'udp://tracker.test:80',
+    announceList: [],
+    infoHash: new Uint8Array(20),
+    name: 'download',
+    pieceLength: 4,
+    pieces: [new Uint8Array(20), new Uint8Array(20), new Uint8Array(20), new Uint8Array(20)],
+    length: 14,
+    files: [
+        { path: ['subtitle.srt'], length: 2, offset: 0 },
+        { path: ['video.mp4'], length: 8, offset: 2 },
+        { path: ['poster.jpg'], length: 4, offset: 10 },
+    ],
 });

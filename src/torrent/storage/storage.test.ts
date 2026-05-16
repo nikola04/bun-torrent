@@ -201,6 +201,26 @@ describe('writePiece', () => {
         expect(await readBytes(join(outputDirectory, 'nested', 'b.bin'))).toEqual([6, 7]);
     });
 
+    test('writes only selected files from a cross-file piece', async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), 'bun-torrent-storage-'));
+        const metadata = makeMetadata({
+            length: 10,
+            pieceLength: 4,
+            files: [
+                { path: ['a.bin'], length: 6, offset: 0 },
+                { path: ['nested', 'b.bin'], length: 4, offset: 6 },
+            ],
+        });
+
+        await writePiece(metadata, 1, new Uint8Array([4, 5, 6, 7]), {
+            outputDirectory,
+            files: [['nested', 'b.bin']],
+        });
+
+        expect(await Bun.file(join(outputDirectory, 'a.bin')).exists()).toBe(false);
+        expect(await readBytes(join(outputDirectory, 'nested', 'b.bin'))).toEqual([6, 7]);
+    });
+
     test('creates nested directories before writing', async () => {
         const outputDirectory = await mkdtemp(join(tmpdir(), 'bun-torrent-storage-'));
         const metadata = makeMetadata({

@@ -19,6 +19,8 @@ import { PiecePlannerError, PiecePlannerErrorCode } from './planner.error';
  */
 export class DefaultPiecePlanner implements PiecePlanner {
     private pieces: PlannedPiece[];
+    private selectedPieces: Set<number>;
+    private selectedPieceList: number[];
     private completed = new Set<number>();
 
     /**
@@ -46,18 +48,29 @@ export class DefaultPiecePlanner implements PiecePlanner {
                 })),
             };
         });
+        this.selectedPieceList =
+            options.pieceIndexes === undefined
+                ? this.pieces.map((piece) => piece.pieceIndex)
+                : [...new Set(options.pieceIndexes)].sort((a, b) => a - b);
+        this.selectedPieces = new Set(this.selectedPieceList);
+
+        for (const pieceIndex of this.selectedPieceList) this.getPiece(pieceIndex);
     }
 
     get complete(): boolean {
-        return this.completed.size === this.pieces.length;
+        return this.completed.size === this.selectedPieces.size;
     }
 
     get completedPieces(): number {
         return this.completed.size;
     }
 
+    get pieceIndexes(): readonly number[] {
+        return this.selectedPieceList;
+    }
+
     get totalPieces(): number {
-        return this.pieces.length;
+        return this.selectedPieces.size;
     }
 
     /**
@@ -128,6 +141,7 @@ export class DefaultPiecePlanner implements PiecePlanner {
      */
     public nextRequest(availablePieces?: PieceAvailability): PieceBlockRequest | undefined {
         for (const piece of this.pieces) {
+            if (!this.selectedPieces.has(piece.pieceIndex)) continue;
             if (this.completed.has(piece.pieceIndex)) continue;
             if (availablePieces && !availablePieces.hasPiece(piece.pieceIndex)) continue;
 

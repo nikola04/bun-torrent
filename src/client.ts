@@ -6,6 +6,8 @@ import { Torrent } from '@torrent/session/index';
 import type { TorrentMetadata } from '@torrent/types';
 import { ClientError, ClientErrorCode } from './client.error';
 import { trackPeers, TrackerError, TrackerErrorCode } from './tracker';
+import type { TorrentFileSelection } from '@torrent/file-selection';
+import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from '@torrent/file-selection';
 
 export enum DownloadState {
     PARSING = 'parsing',
@@ -15,6 +17,7 @@ export enum DownloadState {
 }
 
 export type ClientConfig = {
+    files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
     outputDirectory?: string;
     progressEvents?: DownloadProgressEventMode;
@@ -53,6 +56,7 @@ export class Client {
         options.onChangeState?.(DownloadState.PARSING);
         const meta = await this.inspect(input);
         const downloadConfig = resolveDownloadConfig(this.config, options);
+        assertValidFileSelection(meta, downloadConfig.files);
 
         options.onChangeState?.(DownloadState.TRACKING);
         const peers = await this.trackPeers(meta, options);
@@ -74,6 +78,7 @@ export class Client {
             pool,
             new DownloadManager({
                 metadata: meta,
+                files: downloadConfig.files,
                 outputDirectory: downloadConfig.outputDirectory,
                 peerPool: pool,
                 maxInFlightRequestsPerPeer: downloadConfig.maxInFlightRequestsPerPeer,
@@ -81,6 +86,7 @@ export class Client {
                 requestTimeoutMs: downloadConfig.requestTimeoutMs,
                 speedSampleIntervalMs: downloadConfig.speedSampleIntervalMs,
             }),
+            normalizeTorrentFileSelection(downloadConfig.files),
         );
     }
 
@@ -108,6 +114,7 @@ export class Client {
 
 export type DownloadOptions = {
     announcePort?: number;
+    files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
     minConnections?: number;
     onChangeState?: (state: DownloadState) => unknown;
@@ -131,6 +138,7 @@ const resolveDownloadConfig = (
     config: ClientConfig,
     options: DownloadOptions,
 ): ResolvedDownloadConfig => ({
+    files: options.files ?? config.files ?? null,
     maxInFlightRequestsPerPeer:
         options.maxInFlightRequestsPerPeer ??
         config.maxInFlightRequestsPerPeer ??
@@ -147,6 +155,19 @@ const resolveDownloadConfig = (
         config.speedSampleIntervalMs ??
         DEFAULT_CLIENT_CONFIG.speedSampleIntervalMs,
 });
+
+const assertValidFileSelection = (
+    metadata: TorrentMetadata,
+    files: TorrentFileSelection | undefined,
+): void => {
+    const unknownFiles = getUnknownSelectedFiles(metadata, files);
+    if (unknownFiles.length === 0) return;
+
+    throw new ClientError(
+        ClientErrorCode.INVALID_FILE_SELECTION,
+        `Unknown torrent file selection: ${unknownFiles.join(', ')}`,
+    );
+};
 
 export type TorrentFileInput = string | Uint8Array | ArrayBuffer;
 

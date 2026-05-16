@@ -7,6 +7,7 @@ import {
     type PieceCompletion,
     type PieceValidationResult,
 } from '../pieces';
+import { getTorrentFilePathKey, normalizeTorrentFileSelection } from '../file-selection';
 import { TorrentStorageError, TorrentStorageErrorCode } from './storage.error';
 import type { FileWrite, WritePieceOptions } from './types';
 
@@ -80,7 +81,10 @@ export const writePiece = async (
     data: Uint8Array,
     options: WritePieceOptions,
 ): Promise<void> => {
-    const writes = planPieceWrites(metadata, pieceIndex, data);
+    const selectedFiles = normalizeTorrentFileSelection(options.files);
+    const writes = planPieceWrites(metadata, pieceIndex, data).filter(
+        (write) => !selectedFiles || selectedFiles.has(getTorrentFilePathKey(write.path)),
+    );
 
     for (const write of writes) {
         const path = resolveTorrentFilePath(options.outputDirectory, write.path);

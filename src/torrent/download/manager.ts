@@ -9,6 +9,8 @@ import { createPiecePlanner } from '../pieces';
 import type { TorrentMetadata } from '../types';
 import { writeValidatedPiece, type WritePieceOptions } from '../storage';
 import { formatBytes } from '@utils/formats';
+import type { TorrentFileSelection } from '../file-selection';
+import { getSelectedPieceIndexes } from '../file-selection';
 
 export type DownloadPeerSession = {
     readonly choked: boolean;
@@ -27,6 +29,7 @@ export type DownloadManagerOptions<TPeer extends DownloadPeerSession = DownloadP
     metadata: TorrentMetadata;
     outputDirectory: string;
     peerPool: DownloadPeerPool<TPeer>;
+    files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
     progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
@@ -87,7 +90,11 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     private rejectDone!: (error: unknown) => void;
 
     public constructor(private readonly options: DownloadManagerOptions<TPeer>) {
-        this.planner = options.planner ?? createPiecePlanner(options.metadata);
+        this.planner =
+            options.planner ??
+            createPiecePlanner(options.metadata, {
+                pieceIndexes: getSelectedPieceIndexes(options.metadata, options.files),
+            });
         this.maxInFlightRequestsPerPeer =
             options.maxInFlightRequestsPerPeer ?? DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER;
         this.progressEvents = options.progressEvents ?? DEFAULT_PROGRESS_EVENTS;
@@ -104,23 +111,22 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     public get progress(): DownloadProgress {
         let receivedBytes = 0;
         let downloadedBytes = 0;
+        let totalBytes = 0;
 
-        for (let pieceIndex = 0; pieceIndex < this.planner.totalPieces; pieceIndex += 1) {
+        for (const pieceIndex of this.planner.pieceIndexes) {
             const piece = this.planner.getProgress(pieceIndex);
+            totalBytes += piece.length;
             receivedBytes += piece.receivedBytes;
             if (piece.status === 'complete') downloadedBytes += piece.length;
         }
 
         return {
-            totalBytes: this.options.metadata.length,
+            totalBytes,
             receivedBytes,
             downloadedBytes,
             totalPieces: this.planner.totalPieces,
             completedPieces: this.planner.completedPieces,
-            percent:
-                this.options.metadata.length === 0
-                    ? 1
-                    : downloadedBytes / this.options.metadata.length,
+            percent: totalBytes === 0 ? 1 : downloadedBytes / totalBytes,
             speedBytesPerSecond: this.currentSpeedBytesPerSecond,
             speed: `${formatBytes(this.currentSpeedBytesPerSecond)}ps`,
         };
@@ -234,6 +240,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     private async handleCompletion(completion: PieceCompletion): Promise<void> {
         const result = await this.writeValidated(this.options.metadata, completion, {
             outputDirectory: this.options.outputDirectory,
+            files: this.options.files,
         } satisfies WritePieceOptions);
 
         if (!result.valid) {
@@ -345,7 +352,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     private getReceivedBytes(): number {
         let receivedBytes = 0;
 
-        for (let pieceIndex = 0; pieceIndex < this.planner.totalPieces; pieceIndex += 1) {
+        for (const pieceIndex of this.planner.pieceIndexes) {
             receivedBytes += this.planner.getProgress(pieceIndex).receivedBytes;
         }
 

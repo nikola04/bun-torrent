@@ -104,4 +104,14 @@ describe('Client.download', () => {
         });
         await torrent.done;
     });
+
+    test('rejects unknown selected files', async () => {
+        const client = new Client();
+
+        await expect(
+            client.download({ torrentFile: makeTorrent() }, { files: ['missing.bin'] }),
+        ).rejects.toMatchObject({
+            code: ClientErrorCode.INVALID_FILE_SELECTION,
+        });
+    });
 });
