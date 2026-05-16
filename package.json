@@ -5,6 +5,9 @@
     "module": "src/index.ts",
     "license": "MIT",
     "description": "A minimal Bun-native BitTorrent download-only client.",
+    "publishConfig": {
+        "access": "public"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/nikola04/bun-torrent.git"
