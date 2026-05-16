@@ -1,6 +1,6 @@
 import { createPeerId } from '@peer/peer-id';
 import { openPeerPool } from '@peer/pool';
-import { DownloadManager } from '@torrent/download';
+import { DownloadManager, type DownloadProgressEventMode } from '@torrent/download';
 import { parseTorrent } from '@torrent/parser/';
 import { Torrent } from '@torrent/session/index';
 import type { TorrentMetadata } from '@torrent/types';
@@ -17,14 +17,24 @@ export enum DownloadState {
 export type ClientConfig = {
     maxInFlightRequestsPerPeer?: number;
     outputDirectory?: string;
+    progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
+    speedSampleIntervalMs?: number;
 };
 
 export const DEFAULT_CLIENT_CONFIG = {
     maxInFlightRequestsPerPeer: 20,
+    progressEvents: 'piece',
     requestTimeoutMs: 15_000,
+    speedSampleIntervalMs: 500,
 } as const satisfies Required<
-    Pick<ClientConfig, 'maxInFlightRequestsPerPeer' | 'requestTimeoutMs'>
+    Pick<
+        ClientConfig,
+        | 'maxInFlightRequestsPerPeer'
+        | 'progressEvents'
+        | 'requestTimeoutMs'
+        | 'speedSampleIntervalMs'
+    >
 >;
 
 export class Client {
@@ -67,7 +77,9 @@ export class Client {
                 outputDirectory: downloadConfig.outputDirectory,
                 peerPool: pool,
                 maxInFlightRequestsPerPeer: downloadConfig.maxInFlightRequestsPerPeer,
+                progressEvents: downloadConfig.progressEvents,
                 requestTimeoutMs: downloadConfig.requestTimeoutMs,
+                speedSampleIntervalMs: downloadConfig.speedSampleIntervalMs,
             }),
         );
     }
@@ -100,7 +112,9 @@ export type DownloadOptions = {
     minConnections?: number;
     onChangeState?: (state: DownloadState) => unknown;
     outputDirectory?: string;
+    progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
+    speedSampleIntervalMs?: number;
 };
 
 type ResolvedDownloadConfig = Required<ClientConfig>;
@@ -122,10 +136,16 @@ const resolveDownloadConfig = (
         config.maxInFlightRequestsPerPeer ??
         DEFAULT_CLIENT_CONFIG.maxInFlightRequestsPerPeer,
     outputDirectory: options.outputDirectory ?? config.outputDirectory ?? process.cwd(),
+    progressEvents:
+        options.progressEvents ?? config.progressEvents ?? DEFAULT_CLIENT_CONFIG.progressEvents,
     requestTimeoutMs:
         options.requestTimeoutMs ??
         config.requestTimeoutMs ??
         DEFAULT_CLIENT_CONFIG.requestTimeoutMs,
+    speedSampleIntervalMs:
+        options.speedSampleIntervalMs ??
+        config.speedSampleIntervalMs ??
+        DEFAULT_CLIENT_CONFIG.speedSampleIntervalMs,
 });
 
 export type TorrentFileInput = string | Uint8Array | ArrayBuffer;

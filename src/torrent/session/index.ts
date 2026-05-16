@@ -82,6 +82,8 @@ export class Torrent {
                 totalPieces: this.metadata.pieces.length,
                 completedPieces: 0,
                 percent: this.metadata.length === 0 ? 1 : 0,
+                speedBytesPerSecond: 0,
+                speed: '0.0 Bps',
             }
         );
     }

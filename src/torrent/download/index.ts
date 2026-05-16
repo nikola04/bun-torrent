@@ -4,5 +4,6 @@ export type {
     DownloadPeerPool,
     DownloadPeerSession,
     DownloadProgress,
+    DownloadProgressEventMode,
     DownloadProgressListener,
 } from './manager';

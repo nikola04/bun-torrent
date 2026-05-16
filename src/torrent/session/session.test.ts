@@ -109,6 +109,8 @@ describe('Torrent', () => {
             totalPieces: 1,
             completedPieces: 0,
             percent: 0,
+            speedBytesPerSecond: 1_000,
+            speed: '1.0 KBps',
         };
         manager.emitProgress();
 
@@ -159,6 +161,8 @@ class FakeDownloadManager {
         totalPieces: 1,
         completedPieces: 0,
         percent: 0,
+        speedBytesPerSecond: 0,
+        speed: '0.0 Bps',
     };
     private readonly progressListeners = new Set<DownloadProgressListener>();
     private resolveDone!: () => void;

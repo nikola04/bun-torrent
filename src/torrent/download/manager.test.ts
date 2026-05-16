@@ -194,7 +194,7 @@ describe('DownloadManager', () => {
         ]);
     });
 
-    test('reports progress snapshots as blocks arrive', async () => {
+    test('reports progress snapshots for completed pieces by default', async () => {
         const progress: DownloadProgress[] = [];
         const pool = new FakePeerPool();
         const metadata = makeMetadata({ length: 4, pieceLength: 4, pieces: 1 });
@@ -208,6 +208,45 @@ describe('DownloadManager', () => {
         });
         const peer = new FakePeer({ choked: false });
 
+        manager.onProgress((snapshot) => progress.push(snapshot));
+        manager.start();
+        pool.add(peer);
+
+        peer.emit({ type: 'piece', pieceIndex: 0, offset: 0, block: new Uint8Array([1, 2]) });
+        expect(progress).toEqual([]);
+
+        peer.emit({ type: 'piece', pieceIndex: 0, offset: 2, block: new Uint8Array([3, 4]) });
+        await manager.done;
+
+        expect(progress).toEqual([
+            {
+                totalBytes: 4,
+                receivedBytes: 4,
+                downloadedBytes: 4,
+                totalPieces: 1,
+                completedPieces: 1,
+                percent: 1,
+                speedBytesPerSecond: 0,
+                speed: '0.0 Bps',
+            },
+        ]);
+    });
+
+    test('reports progress snapshots as blocks arrive when configured', async () => {
+        const progress: DownloadProgress[] = [];
+        const pool = new FakePeerPool();
+        const metadata = makeMetadata({ length: 4, pieceLength: 4, pieces: 1 });
+        const manager = new DownloadManager({
+            metadata,
+            outputDirectory: '/tmp/download',
+            peerPool: pool,
+            maxInFlightRequestsPerPeer: 2,
+            progressEvents: 'block',
+            planner: createPiecePlanner(metadata, { blockLength: 2 }),
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const peer = new FakePeer({ choked: false });
+
         expect(manager.progress).toEqual({
             totalBytes: 4,
             receivedBytes: 0,
@@ -215,6 +254,8 @@ describe('DownloadManager', () => {
             totalPieces: 1,
             completedPieces: 0,
             percent: 0,
+            speedBytesPerSecond: 0,
+            speed: '0.0 Bps',
         });
 
         manager.onProgress((snapshot) => progress.push(snapshot));
@@ -233,6 +274,8 @@ describe('DownloadManager', () => {
                 totalPieces: 1,
                 completedPieces: 0,
                 percent: 0,
+                speedBytesPerSecond: 0,
+                speed: '0.0 Bps',
             },
             {
                 totalBytes: 4,
@@ -241,8 +284,40 @@ describe('DownloadManager', () => {
                 totalPieces: 1,
                 completedPieces: 1,
                 percent: 1,
+                speedBytesPerSecond: 0,
+                speed: '0.0 Bps',
             },
         ]);
+    });
+
+    test('updates speed only after the sample interval passes', async () => {
+        const progress: DownloadProgress[] = [];
+        const pool = new FakePeerPool();
+        const metadata = makeMetadata({ length: 4, pieceLength: 4, pieces: 1 });
+        const manager = new DownloadManager({
+            metadata,
+            outputDirectory: '/tmp/download',
+            peerPool: pool,
+            maxInFlightRequestsPerPeer: 2,
+            progressEvents: 'block',
+            speedSampleIntervalMs: 1,
+            planner: createPiecePlanner(metadata, { blockLength: 2 }),
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const peer = new FakePeer({ choked: false });
+
+        manager.onProgress((snapshot) => progress.push(snapshot));
+        manager.start();
+        pool.add(peer);
+
+        peer.emit({ type: 'piece', pieceIndex: 0, offset: 0, block: new Uint8Array([1, 2]) });
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        peer.emit({ type: 'piece', pieceIndex: 0, offset: 2, block: new Uint8Array([3, 4]) });
+        await manager.done;
+
+        expect(progress[0]!.speedBytesPerSecond).toBe(0);
+        expect(progress[1]!.speedBytesPerSecond).toBeGreaterThan(0);
+        expect(progress[1]!.speed).not.toBe('0.0 Bps');
     });
 
     test('retries a piece when validation fails', async () => {

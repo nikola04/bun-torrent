@@ -8,6 +8,7 @@ import type {
 import { createPiecePlanner } from '../pieces';
 import type { TorrentMetadata } from '../types';
 import { writeValidatedPiece, type WritePieceOptions } from '../storage';
+import { formatBytes } from '@utils/formats';
 
 export type DownloadPeerSession = {
     readonly choked: boolean;
@@ -27,10 +28,14 @@ export type DownloadManagerOptions<TPeer extends DownloadPeerSession = DownloadP
     outputDirectory: string;
     peerPool: DownloadPeerPool<TPeer>;
     maxInFlightRequestsPerPeer?: number;
+    progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
+    speedSampleIntervalMs?: number;
     planner?: PiecePlanner;
     writeValidatedPiece?: typeof writeValidatedPiece;
 };
+
+export type DownloadProgressEventMode = 'piece' | 'block';
 
 export type DownloadProgress = {
     totalBytes: number;
@@ -39,6 +44,8 @@ export type DownloadProgress = {
     totalPieces: number;
     completedPieces: number;
     percent: number;
+    speedBytesPerSecond: number;
+    speed: string;
 };
 
 export type DownloadProgressListener = (progress: DownloadProgress) => void;
@@ -57,18 +64,24 @@ type PendingPeerRequest = {
 };
 
 const DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER = 20;
+const DEFAULT_PROGRESS_EVENTS: DownloadProgressEventMode = 'piece';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_SPEED_SAMPLE_INTERVAL_MS = 500;
 
 export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSession> {
     public readonly done: Promise<void>;
 
     private readonly planner: PiecePlanner;
     private readonly maxInFlightRequestsPerPeer: number;
+    private readonly progressEvents: DownloadProgressEventMode;
     private readonly requestTimeoutMs: number;
+    private readonly speedSampleIntervalMs: number;
     private readonly peerStates = new Map<TPeer, PeerDownloadState<TPeer>>();
     private readonly progressListeners = new Set<DownloadProgressListener>();
     private readonly writeValidated: typeof writeValidatedPiece;
     private offSession: (() => void) | null = null;
+    private lastProgressSample: { receivedBytes: number; timestampMs: number } | null = null;
+    private currentSpeedBytesPerSecond = 0;
     private closed = false;
     private resolveDone!: () => void;
     private rejectDone!: (error: unknown) => void;
@@ -77,7 +90,10 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         this.planner = options.planner ?? createPiecePlanner(options.metadata);
         this.maxInFlightRequestsPerPeer =
             options.maxInFlightRequestsPerPeer ?? DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER;
+        this.progressEvents = options.progressEvents ?? DEFAULT_PROGRESS_EVENTS;
         this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+        this.speedSampleIntervalMs =
+            options.speedSampleIntervalMs ?? DEFAULT_SPEED_SAMPLE_INTERVAL_MS;
         this.writeValidated = options.writeValidatedPiece ?? writeValidatedPiece;
         this.done = new Promise((resolve, reject) => {
             this.resolveDone = resolve;
@@ -105,6 +121,8 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
                 this.options.metadata.length === 0
                     ? 1
                     : downloadedBytes / this.options.metadata.length,
+            speedBytesPerSecond: this.currentSpeedBytesPerSecond,
+            speed: `${formatBytes(this.currentSpeedBytesPerSecond)}ps`,
         };
     }
 
@@ -204,9 +222,11 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
 
         if (completion) {
             await this.handleCompletion(completion);
+            this.emitProgress();
+        } else if (this.progressEvents === 'block') {
+            this.emitProgress();
         }
 
-        this.emitProgress();
         this.pumpPeer(state);
         this.resolveIfComplete();
     }
@@ -299,8 +319,37 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     }
 
     private emitProgress(): void {
+        this.updateSpeed();
         const progress = this.progress;
         for (const listener of this.progressListeners) listener(progress);
+    }
+
+    private updateSpeed(): void {
+        const now = Date.now();
+        const receivedBytes = this.getReceivedBytes();
+        const last = this.lastProgressSample;
+
+        if (last) {
+            const elapsedMs = now - last.timestampMs;
+            if (elapsedMs < this.speedSampleIntervalMs) return;
+
+            const elapsedSeconds = elapsedMs / 1_000;
+            const receivedDelta = receivedBytes - last.receivedBytes;
+            this.currentSpeedBytesPerSecond =
+                elapsedSeconds > 0 ? Math.max(0, receivedDelta / elapsedSeconds) : 0;
+        }
+
+        this.lastProgressSample = { receivedBytes, timestampMs: now };
+    }
+
+    private getReceivedBytes(): number {
+        let receivedBytes = 0;
+
+        for (let pieceIndex = 0; pieceIndex < this.planner.totalPieces; pieceIndex += 1) {
+            receivedBytes += this.planner.getProgress(pieceIndex).receivedBytes;
+        }
+
+        return receivedBytes;
     }
 
     private resolveIfComplete(): void {

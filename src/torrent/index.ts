@@ -46,6 +46,7 @@ export type {
     DownloadPeerPool,
     DownloadPeerSession,
     DownloadProgress,
+    DownloadProgressEventMode,
     DownloadProgressListener,
 } from './download';
 export type { FileWrite, WritePieceOptions } from './storage';

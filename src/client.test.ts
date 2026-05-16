@@ -81,7 +81,9 @@ describe('Client.download', () => {
     test('exposes default download configuration', () => {
         expect(DEFAULT_CLIENT_CONFIG).toEqual({
             maxInFlightRequestsPerPeer: 20,
+            progressEvents: 'piece',
             requestTimeoutMs: 15_000,
+            speedSampleIntervalMs: 500,
         });
     });
 
