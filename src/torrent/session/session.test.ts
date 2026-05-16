@@ -46,12 +46,33 @@ describe('Torrent', () => {
         manager.resolve();
         await expect(torrent.done).resolves.toBeUndefined();
         expect(torrent.state).toBe(TorrentState.COMPLETED);
+        expect(manager.closed).toBe(true);
+        expect(pool.closed).toBe(true);
 
         torrent.close();
 
         expect(torrent.state).toBe(TorrentState.CLOSED);
         expect(manager.closed).toBe(true);
         expect(pool.closed).toBe(true);
+    });
+
+    test('cleans up resources after completion without emitting close', async () => {
+        const pool = new FakePeerPool();
+        const manager = new FakeDownloadManager();
+        const torrent = new Torrent(makeMetadata(), pool, manager);
+        let closed = false;
+
+        torrent.on('close', () => {
+            closed = true;
+        });
+
+        manager.resolve();
+        await torrent.done;
+
+        expect(torrent.state).toBe(TorrentState.COMPLETED);
+        expect(manager.closed).toBe(true);
+        expect(pool.closed).toBe(true);
+        expect(closed).toBe(false);
     });
 
     test('emits peer stats, state, done, and close events', async () => {

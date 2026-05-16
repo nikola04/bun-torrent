@@ -67,12 +67,14 @@ export class Torrent {
     private readonly listeners = new Map<TorrentEventName, Set<(...args: unknown[]) => void>>();
     private currentState = TorrentState.DOWNLOADING;
     private lastError: unknown;
+    private resourcesClosed = false;
 
     public constructor(
         public readonly metadata: TorrentMetadata,
         private readonly peerPool: TorrentPeerPool,
         private readonly downloadManager?: TorrentDownloadManager,
         private readonly selectedFiles?: Set<string> | null,
+        private readonly seed: false = false,
     ) {
         this.downloadManager?.onProgress((progress) => this.emit('progress', progress));
         this.downloadManager?.start();
@@ -83,6 +85,7 @@ export class Torrent {
 
                 this.setState(TorrentState.COMPLETED);
                 this.emit('done');
+                if (!this.seed) this.closeResources();
             },
             (error) => {
                 if (this.currentState === TorrentState.CLOSED) return;
@@ -90,6 +93,7 @@ export class Torrent {
                 this.lastError = error;
                 this.setState(TorrentState.FAILED);
                 this.emit('error', error);
+                this.closeResources();
             },
         );
     }
@@ -161,10 +165,17 @@ export class Torrent {
     public close(): void {
         if (this.currentState === TorrentState.CLOSED) return;
 
-        this.downloadManager?.close();
-        this.peerPool.close();
+        this.closeResources();
         this.setState(TorrentState.CLOSED);
         this.emit('close');
+    }
+
+    private closeResources(): void {
+        if (this.resourcesClosed) return;
+
+        this.resourcesClosed = true;
+        this.downloadManager?.close();
+        this.peerPool.close();
     }
 
     private setState(state: TorrentState): void {

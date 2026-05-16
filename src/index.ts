@@ -3,74 +3,33 @@
  * SPDX-License-Identifier: MIT
  */
 
-export * from './client';
+export { Client, DEFAULT_CLIENT_CONFIG, DownloadState, TorrentClient } from './client';
 export { ClientError, ClientErrorCode } from './client.error';
+export type { ClientConfig, DownloadOptions, TorrentFileInput } from './client';
 
 export {
-    BencodeDecodeError,
-    BencodeDecodeErrorCode,
-    BencodeEncodeError,
-    BencodeEncodeErrorCode,
-    computeInfoHash,
-    decodeBencode,
-    encodeBencode,
-    parseTorrent,
     Torrent,
     TorrentState,
-    toBValue,
     TorrentParseError,
     TorrentParseErrorCode,
-    type TorrentFileSelection,
-    type TorrentMetadata,
+    TorrentStorageError,
+    TorrentStorageErrorCode,
+    PiecePlannerError,
+    PiecePlannerErrorCode,
 } from './torrent/index';
-export {
-    connectToPeers,
-    createPeerId,
-    decodeHandshake,
-    decodePeerMessage,
-    encodePeerMessage,
-    encodeHandshake,
-    HandshakeErrorCode,
-    PeerMessageError,
-    PeerMessageErrorCode,
-    PeerMessageId,
-    PeerHandshakeError,
-    PeerPoolError,
-    PeerPoolErrorCode,
-    PeerPool,
-    PeerSession,
-    PeerSessionError,
-    PeerSessionErrorCode,
-    openPeerPool,
-    type PeerHandshake,
-} from './peer/index';
-export { TrackerError, TrackerErrorCode } from './tracker';
-export type {
-    BitfieldMessage,
-    CancelMessage,
-    ChokeMessage,
-    HaveMessage,
-    InterestedMessage,
-    KeepAliveMessage,
-    NotInterestedMessage,
-    PeerMessage,
-    PieceMessage,
-    RequestMessage,
-    UnchokeMessage,
-    PeerConnectionSession,
-    PeerPoolOptions,
-    PeerSessionConnectOptions,
-} from './peer/index';
 
-export { BunTorrentError } from './utils/errors';
+export { PeerPoolError, PeerPoolErrorCode, PeerSessionError, PeerSessionErrorCode } from './peer';
+export { TrackerError, TrackerErrorCode } from './tracker';
+
 export type {
-    BBytes,
-    BDict,
-    BInteger,
-    BList,
-    BValue,
-    BencodeInput,
+    DownloadProgress,
+    DownloadProgressEventMode,
+    TorrentFileSelection,
     TorrentFiles,
+    TorrentMetadata,
     TorrentStats,
     TorrentStateChange,
 } from './torrent/index';
+export type { TorrentFile } from './torrent/types';
+
+export { BunTorrentError } from './utils/errors';

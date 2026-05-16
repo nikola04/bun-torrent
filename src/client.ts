@@ -25,6 +25,7 @@ export type ClientConfig = {
     peerConnectTimeoutMs?: number;
     progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
+    seed?: false;
     speedSampleIntervalMs?: number;
     targetConnections?: number;
     trackerTimeoutMs?: number;
@@ -37,6 +38,7 @@ export const DEFAULT_CLIENT_CONFIG = {
     peerConnectTimeoutMs: 5_000,
     progressEvents: 'piece',
     requestTimeoutMs: 15_000,
+    seed: false,
     speedSampleIntervalMs: 500,
     targetConnections: 20,
     trackerTimeoutMs: 5_000,
@@ -49,6 +51,7 @@ export const DEFAULT_CLIENT_CONFIG = {
         | 'peerConnectTimeoutMs'
         | 'progressEvents'
         | 'requestTimeoutMs'
+        | 'seed'
         | 'speedSampleIntervalMs'
         | 'targetConnections'
         | 'trackerTimeoutMs'
@@ -102,6 +105,7 @@ export class Client {
                 speedSampleIntervalMs: downloadConfig.speedSampleIntervalMs,
             }),
             normalizeTorrentFileSelection(downloadConfig.files),
+            downloadConfig.seed,
         );
     }
 
@@ -142,6 +146,7 @@ export type DownloadOptions = {
     peerConnectTimeoutMs?: number;
     progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
+    seed?: false;
     speedSampleIntervalMs?: number;
     targetConnections?: number;
     trackerTimeoutMs?: number;
@@ -181,6 +186,7 @@ const resolveDownloadConfig = (
         options.requestTimeoutMs ??
         config.requestTimeoutMs ??
         DEFAULT_CLIENT_CONFIG.requestTimeoutMs,
+    seed: options.seed ?? config.seed ?? DEFAULT_CLIENT_CONFIG.seed,
     speedSampleIntervalMs:
         options.speedSampleIntervalMs ??
         config.speedSampleIntervalMs ??

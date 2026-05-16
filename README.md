@@ -66,8 +66,13 @@ import { Client } from 'bun-torrent';
 
 const client = new Client({
     outputDirectory: './downloads',
+    targetConnections: 20,
+    maxConnecting: 30,
     maxInFlightRequestsPerPeer: 20,
+    peerConnectTimeoutMs: 5_000,
+    trackerTimeoutMs: 5_000,
     requestTimeoutMs: 15_000,
+    seed: false,
     progressEvents: 'piece',
     speedSampleIntervalMs: 500,
 });
@@ -77,8 +82,14 @@ Client options:
 
 - `outputDirectory`: directory where downloaded files are written. Defaults to `process.cwd()`.
 - `files`: optional default file selection for downloads.
+- `targetConnections`: preferred number of connected peers. Defaults to `20`.
+- `minConnections`: minimum connectable peer count before downloading starts. Defaults to `0`.
+- `maxConnecting`: maximum simultaneous peer connection attempts. Defaults to `30`.
+- `peerConnectTimeoutMs`: timeout for connecting to one peer. Defaults to `5000`.
+- `trackerTimeoutMs`: timeout for tracker announces. Defaults to `5000`.
 - `maxInFlightRequestsPerPeer`: maximum active block requests per peer. Defaults to `20`.
 - `requestTimeoutMs`: timeout for an individual block request. Defaults to `15000`.
+- `seed`: reserved for future seeding support. Currently only `false` is supported.
 - `progressEvents`: `'piece'` emits progress when a piece completes, `'block'` emits for every received block. Defaults to `'piece'`.
 - `speedSampleIntervalMs`: minimum interval used to refresh speed calculations. Defaults to `500`.
 
@@ -109,8 +120,11 @@ const torrent = await client.download(
     },
     {
         outputDirectory: './downloads',
+        targetConnections: 50,
+        maxConnecting: 100,
         minConnections: 5,
         announcePort: 6881,
+        seed: false,
         progressEvents: 'block',
         onChangeState: (state) => {
             console.log('client state:', state);
@@ -123,10 +137,15 @@ Download options:
 
 - `outputDirectory`: override the output directory for this download.
 - `files`: download only selected files.
+- `targetConnections`: override the preferred peer connection count.
 - `minConnections`: minimum connectable peer count requested before downloading starts.
+- `maxConnecting`: override simultaneous peer connection attempts.
+- `peerConnectTimeoutMs`: override peer connection timeout.
+- `trackerTimeoutMs`: override tracker announce timeout.
 - `announcePort`: port sent to trackers in announce requests.
 - `maxInFlightRequestsPerPeer`: override request concurrency per peer.
 - `requestTimeoutMs`: override block request timeout.
+- `seed`: reserved for future seeding support. Currently only `false` is supported.
 - `progressEvents`: `'piece'` or `'block'`.
 - `speedSampleIntervalMs`: override speed sample interval.
 - `onChangeState`: receives client setup states: `parsing`, `tracking`, `connecting`, `downloading`.
@@ -185,8 +204,8 @@ torrent.on('progress', (progress) => {
     console.log(progress.percent, progress.speed);
 });
 
-torrent.on('peer', (peer) => {
-    console.log('peer connected', peer);
+torrent.on('peer', (stats) => {
+    console.log('peer connected', stats.connections, '/', stats.targetConnections);
 });
 
 torrent.on('done', () => {
@@ -209,7 +228,7 @@ The current torrent state is also available through `torrent.state`. Possible st
 - `failed`
 - `closed`
 
-Call `torrent.close()` to stop the download and close peer connections.
+When a download completes, `torrent.done` resolves, the state becomes `completed`, and internal peer connections are closed automatically because seeding is not implemented yet. Call `torrent.close()` to stop an active download early or to mark a completed torrent as explicitly closed.
 
 ## Progress Shape
 

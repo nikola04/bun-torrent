@@ -90,6 +90,7 @@ describe('Client.download', () => {
             peerConnectTimeoutMs: 5_000,
             progressEvents: 'piece',
             requestTimeoutMs: 15_000,
+            seed: false,
             speedSampleIntervalMs: 500,
             targetConnections: 20,
             trackerTimeoutMs: 5_000,
