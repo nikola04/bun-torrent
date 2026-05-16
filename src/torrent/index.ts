@@ -1,6 +1,6 @@
 export { parseTorrent } from './parser/index';
 export { computeInfoHash } from './parser/info-hash';
-export { Torrent } from './session/index';
+export { Torrent, TorrentState } from './session/index';
 export {
     getSelectedPieceIndexes,
     getTorrentFilePathKey,
@@ -57,5 +57,5 @@ export type {
 } from './download';
 export type { TorrentFileSelection } from './file-selection';
 export type { FileWrite, WritePieceOptions } from './storage';
-export type { TorrentStats } from './session/index';
+export type { TorrentFiles, TorrentStateChange, TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';

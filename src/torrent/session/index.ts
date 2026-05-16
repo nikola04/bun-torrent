@@ -10,12 +10,25 @@ export type TorrentStats = {
     targetConnections: number;
 };
 
+export enum TorrentState {
+    DOWNLOADING = 'downloading',
+    COMPLETED = 'completed',
+    FAILED = 'failed',
+    CLOSED = 'closed',
+}
+
+export type TorrentStateChange = {
+    previous: TorrentState;
+    state: TorrentState;
+};
+
 export type TorrentEventMap = {
     close: [];
     done: [];
     error: [error: unknown];
     peer: [session: unknown];
     progress: [progress: DownloadProgress];
+    state: [change: TorrentStateChange];
 };
 
 export type TorrentEventName = keyof TorrentEventMap;
@@ -52,6 +65,8 @@ type TorrentDownloadManager = {
 export class Torrent {
     public readonly done: Promise<void>;
     private readonly listeners = new Map<TorrentEventName, Set<(...args: unknown[]) => void>>();
+    private currentState = TorrentState.DOWNLOADING;
+    private lastError: unknown;
 
     public constructor(
         public readonly metadata: TorrentMetadata,
@@ -63,9 +78,28 @@ export class Torrent {
         this.downloadManager?.start();
         this.done = downloadManager?.done ?? peerPool.done.then(() => undefined);
         void this.done.then(
-            () => this.emit('done'),
-            (error) => this.emit('error', error),
+            () => {
+                if (this.currentState === TorrentState.CLOSED) return;
+
+                this.setState(TorrentState.COMPLETED);
+                this.emit('done');
+            },
+            (error) => {
+                if (this.currentState === TorrentState.CLOSED) return;
+
+                this.lastError = error;
+                this.setState(TorrentState.FAILED);
+                this.emit('error', error);
+            },
         );
+    }
+
+    public get state(): TorrentState {
+        return this.currentState;
+    }
+
+    public get error(): unknown {
+        return this.lastError;
     }
 
     public get stats(): TorrentStats {
@@ -125,9 +159,20 @@ export class Torrent {
     }
 
     public close(): void {
+        if (this.currentState === TorrentState.CLOSED) return;
+
         this.downloadManager?.close();
         this.peerPool.close();
+        this.setState(TorrentState.CLOSED);
         this.emit('close');
+    }
+
+    private setState(state: TorrentState): void {
+        if (this.currentState === state) return;
+
+        const previous = this.currentState;
+        this.currentState = state;
+        this.emit('state', { previous, state });
     }
 
     private emit<TEvent extends TorrentEventName>(

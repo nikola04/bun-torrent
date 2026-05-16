@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { Torrent } from '.';
+import { Torrent, TorrentState } from '.';
 import type { DownloadProgress, DownloadProgressListener } from '../download';
 import type { TorrentMetadata } from '../types';
 
@@ -41,25 +41,30 @@ describe('Torrent', () => {
 
         expect(manager.started).toBe(true);
         expect(torrent.done).toBe(manager.done);
+        expect(torrent.state).toBe(TorrentState.DOWNLOADING);
 
         manager.resolve();
         await expect(torrent.done).resolves.toBeUndefined();
+        expect(torrent.state).toBe(TorrentState.COMPLETED);
 
         torrent.close();
 
+        expect(torrent.state).toBe(TorrentState.CLOSED);
         expect(manager.closed).toBe(true);
         expect(pool.closed).toBe(true);
     });
 
-    test('emits peer, done, and close events', async () => {
+    test('emits peer, state, done, and close events', async () => {
         const pool = new FakePeerPool();
         const manager = new FakeDownloadManager();
         const torrent = new Torrent(makeMetadata(), pool, manager);
         const peers: unknown[] = [];
+        const states: string[] = [];
         let done = false;
         let closed = false;
 
         torrent.on('peer', (session) => peers.push(session));
+        torrent.on('state', (change) => states.push(`${change.previous}->${change.state}`));
         torrent.on('done', () => {
             done = true;
         });
@@ -75,6 +80,7 @@ describe('Torrent', () => {
         torrent.close();
 
         expect(peers).toEqual([peer]);
+        expect(states).toEqual(['downloading->completed', 'completed->closed']);
         expect(done).toBe(true);
         expect(closed).toBe(true);
     });
@@ -91,7 +97,23 @@ describe('Torrent', () => {
         manager.reject(error);
         await expect(torrent.done).rejects.toBe(error);
 
+        expect(torrent.state).toBe(TorrentState.FAILED);
+        expect(torrent.error).toBe(error);
         expect(errors).toEqual([error]);
+    });
+
+    test('keeps closed state when close resolves the manager', async () => {
+        const pool = new FakePeerPool();
+        const manager = new FakeDownloadManager();
+        const torrent = new Torrent(makeMetadata(), pool, manager);
+        const states: string[] = [];
+
+        torrent.on('state', (change) => states.push(`${change.previous}->${change.state}`));
+        torrent.close();
+        await torrent.done;
+
+        expect(torrent.state).toBe(TorrentState.CLOSED);
+        expect(states).toEqual(['downloading->closed']);
     });
 
     test('returns and emits download progress', () => {
@@ -206,6 +228,7 @@ class FakeDownloadManager {
 
     public close(): void {
         this.closed = true;
+        this.resolveDone();
     }
 
     public onProgress(listener: DownloadProgressListener): () => void {

@@ -16,6 +16,7 @@ export {
     encodeBencode,
     parseTorrent,
     Torrent,
+    TorrentState,
     toBValue,
     TorrentParseError,
     TorrentParseErrorCode,
@@ -69,5 +70,7 @@ export type {
     BList,
     BValue,
     BencodeInput,
+    TorrentFiles,
     TorrentStats,
+    TorrentStateChange,
 } from '@torrent/index';
