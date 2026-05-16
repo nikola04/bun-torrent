@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { TorrentMetadata } from '@torrent/types';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { sha1 } from '@utils/sha1';
@@ -27,7 +27,7 @@ const makeMetadata = ({
     files,
 });
 
-const readBytes = async (path: string): Promise<number[]> => [...(await Bun.file(path).bytes())];
+const readBytes = async (path: string): Promise<number[]> => [...(await readFile(path))];
 
 describe('planPieceWrites', () => {
     test('maps a single-file piece to one write', () => {

@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { encodeBencode, toBValue } from '@torrent/index';
 import { Client, DEFAULT_CLIENT_CONFIG } from './client';
@@ -53,7 +56,8 @@ describe('Client.inspect', () => {
     });
 
     test('inspects torrent metadata from file path input', async () => {
-        const path = '/private/tmp/bun-torrent-client-inspect.torrent';
+        const outputDirectory = await mkdtemp(join(tmpdir(), 'bun-torrent-client-'));
+        const path = join(outputDirectory, 'inspect.torrent');
         await Bun.write(path, makeTorrent({ announce: 'https://tracker.test/announce' }));
 
         const client = new Client();
