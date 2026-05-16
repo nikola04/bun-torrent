@@ -19,24 +19,39 @@ export enum DownloadState {
 export type ClientConfig = {
     files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
+    maxConnecting?: number;
+    minConnections?: number;
     outputDirectory?: string;
+    peerConnectTimeoutMs?: number;
     progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
     speedSampleIntervalMs?: number;
+    targetConnections?: number;
+    trackerTimeoutMs?: number;
 };
 
 export const DEFAULT_CLIENT_CONFIG = {
     maxInFlightRequestsPerPeer: 20,
+    maxConnecting: 30,
+    minConnections: 0,
+    peerConnectTimeoutMs: 5_000,
     progressEvents: 'piece',
     requestTimeoutMs: 15_000,
     speedSampleIntervalMs: 500,
+    targetConnections: 20,
+    trackerTimeoutMs: 5_000,
 } as const satisfies Required<
     Pick<
         ClientConfig,
         | 'maxInFlightRequestsPerPeer'
+        | 'maxConnecting'
+        | 'minConnections'
+        | 'peerConnectTimeoutMs'
         | 'progressEvents'
         | 'requestTimeoutMs'
         | 'speedSampleIntervalMs'
+        | 'targetConnections'
+        | 'trackerTimeoutMs'
     >
 >;
 
@@ -59,17 +74,17 @@ export class Client {
         assertValidFileSelection(meta, downloadConfig.files);
 
         options.onChangeState?.(DownloadState.TRACKING);
-        const peers = await this.trackPeers(meta, options);
+        const peers = await this.trackPeers(meta, options, downloadConfig);
 
         options.onChangeState?.(DownloadState.CONNECTING);
         const pool = await openPeerPool(peers, {
             infoHash: meta.infoHash,
             peerId: this.peerId,
-            targetConnections: 20,
+            targetConnections: downloadConfig.targetConnections,
             totalPieces: meta.pieces.length,
-            minConnections: options.minConnections ?? 0,
-            maxConnecting: 30,
-            timeoutMs: 5_000,
+            minConnections: downloadConfig.minConnections,
+            maxConnecting: downloadConfig.maxConnecting,
+            timeoutMs: downloadConfig.peerConnectTimeoutMs,
         });
 
         options.onChangeState?.(DownloadState.DOWNLOADING);
@@ -97,13 +112,17 @@ export class Client {
         return parseTorrent(bytes);
     }
 
-    private async trackPeers(meta: TorrentMetadata, options: DownloadOptions): Promise<PeerInfo[]> {
+    private async trackPeers(
+        meta: TorrentMetadata,
+        options: DownloadOptions,
+        config: ResolvedDownloadConfig,
+    ): Promise<PeerInfo[]> {
         try {
             return await trackPeers({
                 meta,
                 peerId: this.peerId,
                 announcePort: options.announcePort,
-                timeoutMs: 5_000,
+                timeoutMs: config.trackerTimeoutMs,
             });
         } catch (error) {
             if (isNonFatalTrackerError(error)) return [];
@@ -116,12 +135,16 @@ export type DownloadOptions = {
     announcePort?: number;
     files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
+    maxConnecting?: number;
     minConnections?: number;
     onChangeState?: (state: DownloadState) => unknown;
     outputDirectory?: string;
+    peerConnectTimeoutMs?: number;
     progressEvents?: DownloadProgressEventMode;
     requestTimeoutMs?: number;
     speedSampleIntervalMs?: number;
+    targetConnections?: number;
+    trackerTimeoutMs?: number;
 };
 
 type ResolvedDownloadConfig = Required<ClientConfig>;
@@ -143,7 +166,15 @@ const resolveDownloadConfig = (
         options.maxInFlightRequestsPerPeer ??
         config.maxInFlightRequestsPerPeer ??
         DEFAULT_CLIENT_CONFIG.maxInFlightRequestsPerPeer,
+    maxConnecting:
+        options.maxConnecting ?? config.maxConnecting ?? DEFAULT_CLIENT_CONFIG.maxConnecting,
+    minConnections:
+        options.minConnections ?? config.minConnections ?? DEFAULT_CLIENT_CONFIG.minConnections,
     outputDirectory: options.outputDirectory ?? config.outputDirectory ?? process.cwd(),
+    peerConnectTimeoutMs:
+        options.peerConnectTimeoutMs ??
+        config.peerConnectTimeoutMs ??
+        DEFAULT_CLIENT_CONFIG.peerConnectTimeoutMs,
     progressEvents:
         options.progressEvents ?? config.progressEvents ?? DEFAULT_CLIENT_CONFIG.progressEvents,
     requestTimeoutMs:
@@ -154,6 +185,14 @@ const resolveDownloadConfig = (
         options.speedSampleIntervalMs ??
         config.speedSampleIntervalMs ??
         DEFAULT_CLIENT_CONFIG.speedSampleIntervalMs,
+    targetConnections:
+        options.targetConnections ??
+        config.targetConnections ??
+        DEFAULT_CLIENT_CONFIG.targetConnections,
+    trackerTimeoutMs:
+        options.trackerTimeoutMs ??
+        config.trackerTimeoutMs ??
+        DEFAULT_CLIENT_CONFIG.trackerTimeoutMs,
 });
 
 const assertValidFileSelection = (

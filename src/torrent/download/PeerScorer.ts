@@ -25,10 +25,10 @@ export class PeerScorer {
     }
 
     public getRequestLimit(stats: PeerDownloadStats, defaultLimit: number): number {
-        if (stats.timedOutRequests >= 5 && stats.completedRequests === 0) return 1;
-        if (stats.completedRequests < 5) return defaultLimit;
+        if (stats.timedOutRequests >= 3 && stats.completedRequests === 0) return 1;
+        if (stats.completedRequests < 3) return defaultLimit;
 
-        const timeoutRate = stats.timedOutRequests / stats.sentRequests;
+        const timeoutRate = stats.timedOutRequests / Math.max(1, stats.sentRequests);
 
         if (timeoutRate > 0.5) return Math.max(1, Math.floor(defaultLimit / 4));
         if (timeoutRate > 0.25) return Math.max(1, Math.floor(defaultLimit / 2));

@@ -85,10 +85,27 @@ describe('Client.download', () => {
     test('exposes default download configuration', () => {
         expect(DEFAULT_CLIENT_CONFIG).toEqual({
             maxInFlightRequestsPerPeer: 20,
+            maxConnecting: 30,
+            minConnections: 0,
+            peerConnectTimeoutMs: 5_000,
             progressEvents: 'piece',
             requestTimeoutMs: 15_000,
             speedSampleIntervalMs: 500,
+            targetConnections: 20,
+            trackerTimeoutMs: 5_000,
         });
+    });
+
+    test('uses configurable peer connection targets', async () => {
+        const client = new Client({ targetConnections: 40 });
+
+        const torrent = await client.download(
+            { torrentFile: makeTorrent() },
+            { targetConnections: 12 },
+        );
+
+        expect(torrent.stats.targetConnections).toBe(12);
+        await torrent.done;
     });
 
     test('returns an empty torrent instead of rejecting when no trackers are available', async () => {
