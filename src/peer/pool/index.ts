@@ -1,5 +1,5 @@
-import { PeerSession, type PeerSessionConnectOptions } from '@peer/session';
-import type { PeerInfo } from '@tracker/types';
+import { PeerSession, type PeerSessionConnectOptions } from '../session';
+import type { PeerInfo } from '../../tracker/types';
 import { PeerPoolError, PeerPoolErrorCode } from './pool.error';
 
 const DEFAULT_MAX_CONNECTING = 20;

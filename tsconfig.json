@@ -13,12 +13,6 @@
         "moduleResolution": "bundler",
         "allowImportingTsExtensions": true,
         "verbatimModuleSyntax": true,
-        "paths": {
-            "@torrent/*": ["./src/torrent/*"],
-            "@peer/*": ["./src/peer/*"],
-            "@tracker/*": ["./src/tracker/*"],
-            "@utils/*": ["./src/utils/*"]
-        },
         "noEmit": true,
 
         // Best practices

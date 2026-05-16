@@ -1,4 +1,4 @@
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../types';
 import type {
     BlockState,
     PieceAvailability,
@@ -11,7 +11,7 @@ import type {
     PlannedPiece,
 } from './types';
 import { getPieceLength, isValidBlockForRequest, splitPieceIntoRequests } from './utils';
-import { concatBytes } from '@utils/buffers';
+import { concatBytes } from '../../utils/buffers';
 import { PiecePlannerError, PiecePlannerErrorCode } from './planner.error';
 
 /**

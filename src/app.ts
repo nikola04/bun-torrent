@@ -1,5 +1,5 @@
-import { bytesToHex } from '@utils/buffers';
-import type { TorrentMetadata } from '@torrent/index';
+import { bytesToHex } from './utils/buffers';
+import type { TorrentMetadata } from './torrent/index';
 import { Client } from './client';
 
 type InspectSummary = {

@@ -1,4 +1,4 @@
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../torrent/types';
 import { announceHttp } from './http';
 import { DEFAULT_ANNOUNCE_PORT, type AnnounceTracker, type PeerInfo } from './types';
 import { announceUdp } from './udp';

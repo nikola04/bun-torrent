@@ -1,5 +1,5 @@
-import { decodeBencode, type BValue } from '@torrent/bencode';
-import type { TorrentMetadata } from '@torrent/types';
+import { decodeBencode, type BValue } from '../torrent/bencode';
+import type { TorrentMetadata } from '../torrent/types';
 import { DEFAULT_ANNOUNCE_PORT, type AnnounceOptions, type PeerInfo } from './types';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
 

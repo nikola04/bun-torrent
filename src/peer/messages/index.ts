@@ -1,7 +1,7 @@
 import { PeerMessageError, PeerMessageErrorCode } from './error';
 import { encodeFrame, writeUInt32 } from './helpers';
 import { PeerMessageId, type PeerMessage } from './types';
-import { concatBytes } from '@utils/buffers';
+import { concatBytes } from '../../utils/buffers';
 
 export const encodePeerMessage = (message: PeerMessage): Uint8Array => {
     switch (message.type) {

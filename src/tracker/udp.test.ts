@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../torrent/types';
 import { trackPeers, TrackerError, TrackerErrorCode } from './index';
 import type { AnnounceOptions } from './types';
 

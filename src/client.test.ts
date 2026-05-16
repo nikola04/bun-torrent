@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { encodeBencode, toBValue } from '@torrent/index';
+import { encodeBencode, toBValue } from './torrent/index';
 import { Client, DEFAULT_CLIENT_CONFIG } from './client';
 import { ClientError, ClientErrorCode } from './client.error';
 

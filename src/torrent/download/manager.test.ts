@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { PeerMessage } from '@peer/messages';
+import type { PeerMessage } from '../../peer/messages';
 import { createPiecePlanner, type PieceAvailability, type PieceCompletion } from '../pieces';
 import type { TorrentMetadata } from '../types';
 import {

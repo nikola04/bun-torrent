@@ -1,4 +1,4 @@
-import type { PeerMessage } from '@peer/messages';
+import type { PeerMessage } from '../../peer/messages';
 import type {
     PieceAvailability,
     PieceBlockRequest,
@@ -8,7 +8,7 @@ import type {
 import { createPiecePlanner } from '../pieces';
 import type { TorrentMetadata } from '../types';
 import { writeValidatedPiece, type WritePieceOptions } from '../storage';
-import { formatBytes } from '@utils/formats';
+import { formatBytes } from '../../utils/formats';
 import type { TorrentFileSelection } from '../file-selection';
 import { getSelectedPieceIndexes } from '../file-selection';
 

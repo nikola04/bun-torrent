@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from './utils/errors';
 
 export enum ClientErrorCode {
     INVALID_FILE_SELECTION = 'CLIENT_INVALID_FILE_SELECTION',

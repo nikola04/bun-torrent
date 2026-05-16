@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum TorrentStorageErrorCode {
     INVALID_FILE_LAYOUT = 'TORRENT_STORAGE_INVALID_FILE_LAYOUT',

@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum PeerMessageErrorCode {
     INVALID_LENGTH_PREFIX = 'PEER_MSG_INVALID_LENGTH_PREFIX',

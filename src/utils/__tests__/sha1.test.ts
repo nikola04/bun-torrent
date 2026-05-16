@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import { bytesToHex } from '@utils/buffers';
-import { sha1 } from '@utils/sha1';
+import { bytesToHex } from '../buffers';
+import { sha1 } from '../sha1';
 
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value);
 

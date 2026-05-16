@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum TorrentParseErrorCode {
     ROOT_NOT_DICT = 'TORRENT_ROOT_NOT_DICT',

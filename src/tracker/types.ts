@@ -1,4 +1,4 @@
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../torrent/types';
 
 export type PeerInfo = { ip: string; port: number };
 

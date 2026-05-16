@@ -1,4 +1,4 @@
-import { sha1 } from '@utils/sha1';
+import { sha1 } from '../../utils/sha1';
 import { encodeBencode } from '../bencode';
 import type { BDict } from '../bencode/types';
 

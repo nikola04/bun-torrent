@@ -1,5 +1,5 @@
-import { compareBytes } from '@utils/buffers';
-import { sha1 } from '@utils/sha1';
+import { compareBytes } from '../../utils/buffers';
+import { sha1 } from '../../utils/sha1';
 import type { PieceCompletion } from './types';
 
 export type PieceValidationResult = {

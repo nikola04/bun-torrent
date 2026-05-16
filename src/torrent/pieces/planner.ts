@@ -1,4 +1,4 @@
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../types';
 import type { PiecePlanner, PiecePlannerOptions } from './types';
 import { DefaultPiecePlanner } from './DefaultPlanner';
 

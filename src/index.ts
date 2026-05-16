@@ -22,7 +22,7 @@ export {
     TorrentParseErrorCode,
     type TorrentFileSelection,
     type TorrentMetadata,
-} from '@torrent/index';
+} from './torrent/index';
 export {
     connectToPeers,
     createPeerId,
@@ -43,7 +43,7 @@ export {
     PeerSessionErrorCode,
     openPeerPool,
     type PeerHandshake,
-} from '@peer/index';
+} from './peer/index';
 export { TrackerError, TrackerErrorCode } from './tracker';
 export type {
     BitfieldMessage,
@@ -60,9 +60,9 @@ export type {
     PeerConnectionSession,
     PeerPoolOptions,
     PeerSessionConnectOptions,
-} from '@peer/index';
+} from './peer/index';
 
-export { BunTorrentError } from '@utils/errors';
+export { BunTorrentError } from './utils/errors';
 export type {
     BBytes,
     BDict,
@@ -73,4 +73,4 @@ export type {
     TorrentFiles,
     TorrentStats,
     TorrentStateChange,
-} from '@torrent/index';
+} from './torrent/index';

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../types';
 import { createPiecePlanner } from './planner';
 import { PiecePlannerError, PiecePlannerErrorCode } from './planner.error';
 import { getPieceLength, isValidBlockForRequest, splitPieceIntoRequests } from './utils';

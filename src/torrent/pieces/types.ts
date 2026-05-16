@@ -1,4 +1,4 @@
-import type { PieceMessage, RequestMessage } from '@peer/messages';
+import type { PieceMessage, RequestMessage } from '../../peer/messages';
 
 export type PiecePlannerOptions = {
     blockLength?: number;

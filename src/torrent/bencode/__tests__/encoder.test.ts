@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import { encodeBencode } from '@torrent/bencode';
-import { BunTorrentError } from '@utils/errors';
+import { encodeBencode } from '..';
+import { BunTorrentError } from '../../../utils/errors';
 import { BencodeEncodeError, BencodeEncodeErrorCode } from '../encoder.error';
 import type { BValue } from '../types';
 

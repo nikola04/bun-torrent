@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 import { PeerMessageError, PeerMessageErrorCode, decodePeerMessage, encodePeerMessage } from '.';
 import { readUInt32, writeUInt32 } from './helpers';
 

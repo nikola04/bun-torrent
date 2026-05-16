@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { encodeBencode, toBValue } from '@torrent/bencode';
+import { encodeBencode, toBValue } from '../torrent/bencode';
 import { parseHttpAnnounceResponse } from './http';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
 

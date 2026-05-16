@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum PeerPoolErrorCode {
     INVALID_OPTION = 'PEER_POOL_INVALID_OPTION',

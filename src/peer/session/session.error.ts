@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum PeerSessionErrorCode {
     CLOSED = 'PEER_SESSION_CLOSED',

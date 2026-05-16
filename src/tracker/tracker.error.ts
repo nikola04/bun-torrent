@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../utils/errors';
 
 export enum TrackerErrorCode {
     ANNOUNCE_FAILED = 'TRACKER_ANNOUNCE_FAILED',

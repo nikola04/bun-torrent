@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { sha1 } from '@utils/sha1';
+import { sha1 } from '../../utils/sha1';
 import { validatePiece } from './validation';
 
 describe('validatePiece', () => {

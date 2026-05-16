@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 import {
     HANDSHAKE_LENGTH,
     INFO_HASH_LENGTH,

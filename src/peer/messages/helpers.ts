@@ -1,4 +1,4 @@
-import { concatBytes } from '@utils/buffers';
+import { concatBytes } from '../../utils/buffers';
 import { PeerMessageError, PeerMessageErrorCode } from './error';
 import type { PeerMessageId } from './types';
 

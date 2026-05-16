@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { PeerInfo } from '@tracker/types';
+import type { PeerInfo } from '../../tracker/types';
 import {
     connectToPeers,
     openPeerPool,
@@ -8,7 +8,7 @@ import {
     PeerPoolErrorCode,
     type PeerConnectionSession,
 } from '.';
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 const bytes20 = new Uint8Array(20);
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { encodeHandshake } from '@peer/handshake';
-import { decodePeerMessage, encodePeerMessage } from '@peer/messages';
-import { PeerPieceAvailability } from '@peer/availability';
-import { BunTorrentError } from '@utils/errors';
-import { concatBytes } from '@utils/buffers';
+import { encodeHandshake } from '../handshake';
+import { decodePeerMessage, encodePeerMessage } from '../messages';
+import { PeerPieceAvailability } from '../availability';
+import { BunTorrentError } from '../../utils/errors';
+import { concatBytes } from '../../utils/buffers';
 import { PeerSession, PeerSessionError, PeerSessionErrorCode } from '.';
 
 const bytes20 = new Uint8Array(20);

@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum PiecePlannerErrorCode {
     INCOMPLETE_PIECE = 'PIECE_PLANNER_INCOMPLETE_PIECE',

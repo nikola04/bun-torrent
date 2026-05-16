@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
-import { BunTorrentError } from '@utils/errors';
-import { bytesToHex } from '@utils/buffers';
+import { BunTorrentError } from '../../utils/errors';
+import { bytesToHex } from '../../utils/buffers';
 import { encodeBencode, toBValue } from '../bencode';
 import { TorrentParseError, TorrentParseErrorCode } from './parser.error';
 import { parseTorrent } from './index';

@@ -1,4 +1,4 @@
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../types';
 import { constants } from 'node:fs';
 import { mkdir, open } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';

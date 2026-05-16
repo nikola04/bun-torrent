@@ -1,4 +1,4 @@
-import { compareBytes, concatBytes } from '@utils/buffers';
+import { compareBytes, concatBytes } from '../../utils/buffers';
 import { BencodeEncodeError, BencodeEncodeErrorCode } from './encoder.error';
 import { FLAG, type BValue } from './types';
 

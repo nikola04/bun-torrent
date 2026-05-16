@@ -1,10 +1,10 @@
-import { HANDSHAKE_LENGTH } from '@peer/consts';
-import { decodeHandshake, encodeHandshake } from '@peer/handshake';
-import { decodePeerMessage, encodePeerMessage, type PeerMessage } from '@peer/messages';
-import { PeerPieceAvailability } from '@peer/availability';
-import type { PeerInfo } from '@tracker/types';
-import { concatBytes } from '@utils/buffers';
-import { BunTorrentError } from '@utils/errors';
+import { HANDSHAKE_LENGTH } from '../consts';
+import { decodeHandshake, encodeHandshake } from '../handshake';
+import { decodePeerMessage, encodePeerMessage, type PeerMessage } from '../messages';
+import { PeerPieceAvailability } from '../availability';
+import type { PeerInfo } from '../../tracker/types';
+import { concatBytes } from '../../utils/buffers';
+import { BunTorrentError } from '../../utils/errors';
 import { createConnection, type Socket } from 'node:net';
 import { PeerSessionError, PeerSessionErrorCode } from './session.error';
 

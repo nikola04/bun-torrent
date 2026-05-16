@@ -1,13 +1,13 @@
-import { createPeerId } from '@peer/peer-id';
-import { openPeerPool } from '@peer/pool';
-import { DownloadManager, type DownloadProgressEventMode } from '@torrent/download';
-import { parseTorrent } from '@torrent/parser/';
-import { Torrent } from '@torrent/session/index';
-import type { TorrentMetadata } from '@torrent/types';
+import { createPeerId } from './peer/peer-id';
+import { openPeerPool } from './peer/pool';
+import { DownloadManager, type DownloadProgressEventMode } from './torrent/download';
+import { parseTorrent } from './torrent/parser';
+import { Torrent } from './torrent/session/index';
+import type { TorrentMetadata } from './torrent/types';
 import { ClientError, ClientErrorCode } from './client.error';
 import { trackPeers, TrackerError, TrackerErrorCode } from './tracker';
-import type { TorrentFileSelection } from '@torrent/file-selection';
-import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from '@torrent/file-selection';
+import type { TorrentFileSelection } from './torrent/file-selection';
+import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from './torrent/file-selection';
 
 export enum DownloadState {
     PARSING = 'parsing',

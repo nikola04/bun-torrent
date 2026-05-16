@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { decodeBencode, encodeBencode, toBValue } from '@torrent/bencode';
+import { decodeBencode, encodeBencode, toBValue } from '..';
 
 const textDecoder = new TextDecoder();
 

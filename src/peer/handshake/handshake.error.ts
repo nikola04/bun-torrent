@@ -1,4 +1,4 @@
-import { BunTorrentError } from '@utils/errors';
+import { BunTorrentError } from '../../utils/errors';
 
 export enum HandshakeErrorCode {
     INFOHASH_INVALID_LENGTH = 'HANDSHK_INFOHASH_INVALID_LENGTH',

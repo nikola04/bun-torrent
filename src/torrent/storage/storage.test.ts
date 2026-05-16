@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { TorrentMetadata } from '@torrent/types';
+import type { TorrentMetadata } from '../types';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { sha1 } from '@utils/sha1';
+import { sha1 } from '../../utils/sha1';
 import {
     planPieceWrites,
     TorrentStorageError,
