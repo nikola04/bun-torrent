@@ -98,6 +98,20 @@ export class DownloadManager {
     }
 
     public get progress(): DownloadProgress {
+        const totals = this.getProgressTotals();
+
+        return {
+            ...totals,
+            percent: totals.totalBytes === 0 ? 1 : totals.downloadedBytes / totals.totalBytes,
+            speedBytesPerSecond: this.currentSpeedBytesPerSecond,
+            speed: `${formatBytes(this.currentSpeedBytesPerSecond)}ps`,
+        };
+    }
+
+    private getProgressTotals(): Pick<
+        DownloadProgress,
+        'totalBytes' | 'receivedBytes' | 'downloadedBytes' | 'totalPieces' | 'completedPieces'
+    > {
         let receivedBytes = 0;
         let downloadedBytes = 0;
         let totalBytes = 0;
@@ -115,15 +129,13 @@ export class DownloadManager {
             downloadedBytes,
             totalPieces: this.planner.totalPieces,
             completedPieces: this.planner.completedPieces,
-            percent: totalBytes === 0 ? 1 : downloadedBytes / totalBytes,
-            speedBytesPerSecond: this.currentSpeedBytesPerSecond,
-            speed: `${formatBytes(this.currentSpeedBytesPerSecond)}ps`,
         };
     }
 
     public start(): void {
         if (this.closed || this.offSession) return;
 
+        // The peer pool may already have connected sessions, so onSession is both a replay and a subscription.
         this.offSession = this.options.peerPool.onSession((session) => this.attachPeer(session));
         void this.options.peerPool.done?.then((sessions) => {
             if (sessions.length === 0) this.resolveDone();
@@ -167,17 +179,7 @@ export class DownloadManager {
             peer,
             pending: [],
             interestedSent: false,
-            stats: {
-                receivedBytes: 0,
-                receivedBlocks: 0,
-                timedOutRequests: 0,
-                sentRequests: 0,
-                completedPieces: 0,
-                invalidPieces: 0,
-                lastBlockAt: null,
-                totalRequestTimeMs: 0,
-                completedRequests: 0,
-            },
+            stats: createInitialPeerStats(),
             offClose: peer.onClose(() => this.handlePeerClosed(peer)),
             offMessage: peer.onMessage((message) => this.handlePeerMessage(peer, message)),
         };
@@ -189,6 +191,7 @@ export class DownloadManager {
     private detachPeer(state: PeerDownloadState): void {
         state.offClose();
         state.offMessage();
+        // Any in-flight blocks owned by this peer must become available for another peer.
         this.clearPendingTimeouts(state.pending);
         this.planner.resetPeerRequests(state.pending.map((pending) => pending.request));
         state.pending = [];
@@ -206,6 +209,7 @@ export class DownloadManager {
         const state = this.peerStates.get(peer);
         if (!state || this.closed) return;
 
+        // Availability/choke changes are scheduling signals even when no block data arrived.
         if (message.type === 'unchoke' || message.type === 'have' || message.type === 'bitfield') {
             this.pumpPeer(state);
             return;
@@ -220,17 +224,10 @@ export class DownloadManager {
         state: PeerDownloadState,
         message: Extract<PeerMessage, { type: 'piece' }>,
     ): Promise<void> {
-        const pendingIndex = state.pending.findIndex(
-            ({ request }) =>
-                request.pieceIndex === message.pieceIndex &&
-                request.offset === message.offset &&
-                request.length === message.block.byteLength,
-        );
-        if (pendingIndex === -1) return;
+        const pending = this.takePendingPieceRequest(state, message);
+        if (!pending) return;
 
-        const [pending] = state.pending.splice(pendingIndex, 1);
-        if (pending) clearTimeout(pending.timeout);
-        if (pending) this.recordReceivedBlock(state, pending, message);
+        this.recordReceivedBlock(state, pending, message);
 
         const completion = this.planner.receiveBlock(message);
 
@@ -264,47 +261,29 @@ export class DownloadManager {
     }
 
     private pumpPeer(state: PeerDownloadState): void {
-        if (this.planner.complete) return;
+        if (this.closed || this.planner.complete) return;
 
         this.sendInterestedIfUseful(state);
         if (state.peer.choked) return;
 
-        const requestLimit = this.peerScorer.getRequestLimit(
-            state.stats,
-            this.maxInFlightRequestsPerPeer,
-        );
+        // The scorer can throttle unreliable peers without disconnecting them.
+        const requestLimit = this.getPeerRequestLimit(state);
 
         while (state.pending.length < requestLimit) {
             const request = this.planner.nextRequest(state.peer.peerAvailability);
             if (!request) break;
 
-            this.planner.markPending(request);
-            const timeout = setTimeout(
-                () => this.handleRequestTimeout(state, request),
-                this.requestTimeoutMs,
-            );
-            unrefTimer(timeout);
-            state.pending.push({
-                request,
-                timeout,
-                requestedAt: Date.now(),
-            });
-            state.stats.sentRequests += 1;
-            state.peer.sendMessage(request);
+            if (!this.sendRequest(state, request)) break;
         }
     }
 
     private handleRequestTimeout(state: PeerDownloadState, request: PieceBlockRequest): void {
         if (this.closed || this.planner.complete) return;
 
-        const pendingIndex = state.pending.findIndex((pending) =>
-            isSameRequest(pending.request, request),
-        );
-        if (pendingIndex === -1) return;
+        const pending = this.takePendingRequest(state, request);
+        if (!pending) return;
 
-        const [pending] = state.pending.splice(pendingIndex, 1);
-        if (pending) clearTimeout(pending.timeout);
-
+        // Prefer retrying timed-out work on other peers before giving the same peer another slot.
         state.stats.timedOutRequests += 1;
         this.planner.resetPending(request);
         this.pumpPeers(state);
@@ -312,26 +291,105 @@ export class DownloadManager {
 
     private sendInterestedIfUseful(state: PeerDownloadState): void {
         if (state.interestedSent) return;
-        if (!this.planner.nextRequest(state.peer.peerAvailability)) return;
+        if (!this.hasUsefulRequest(state)) return;
 
         state.peer.sendMessage({ type: 'interested' });
         state.interestedSent = true;
     }
 
+    private hasUsefulRequest(state: PeerDownloadState): boolean {
+        return this.planner.nextRequest(state.peer.peerAvailability) !== null;
+    }
+
+    private getPeerRequestLimit(state: PeerDownloadState): number {
+        return this.peerScorer.getRequestLimit(state.stats, this.maxInFlightRequestsPerPeer);
+    }
+
+    private sendRequest(state: PeerDownloadState, request: PieceBlockRequest): boolean {
+        this.planner.markPending(request);
+
+        // Keep the timer tied to this exact request so late blocks can cancel it deterministically.
+        const timeout = setTimeout(
+            () => this.handleRequestTimeout(state, request),
+            this.requestTimeoutMs,
+        );
+        unrefTimer(timeout);
+
+        state.pending.push({
+            request,
+            timeout,
+            requestedAt: Date.now(),
+        });
+        state.stats.sentRequests += 1;
+
+        try {
+            state.peer.sendMessage(request);
+            return true;
+        } catch {
+            this.rollbackFailedSend(state, request);
+            this.handlePeerClosed(state.peer);
+            this.pumpPeers();
+            return false;
+        }
+    }
+
+    private rollbackFailedSend(state: PeerDownloadState, request: PieceBlockRequest): void {
+        const pending = this.takePendingRequest(state, request);
+        if (!pending) return;
+
+        this.planner.resetPending(request);
+    }
+
+    private takePendingPieceRequest(
+        state: PeerDownloadState,
+        message: Extract<PeerMessage, { type: 'piece' }>,
+    ): PendingPeerRequest | null {
+        return this.takePendingRequest(state, {
+            type: 'request',
+            pieceIndex: message.pieceIndex,
+            offset: message.offset,
+            length: message.block.byteLength,
+        });
+    }
+
+    private takePendingRequest(
+        state: PeerDownloadState,
+        request: PieceBlockRequest,
+    ): PendingPeerRequest | null {
+        const pendingIndex = state.pending.findIndex((pending) =>
+            isSameRequest(pending.request, request),
+        );
+        if (pendingIndex === -1) return null;
+
+        const [pending] = state.pending.splice(pendingIndex, 1);
+        if (!pending) return null;
+
+        clearTimeout(pending.timeout);
+        return pending;
+    }
+
     private resetPieceForRetry(pieceIndex: number): void {
         this.planner.resetPiece(pieceIndex);
 
+        // A bad piece invalidates every pending block for that piece, across all peers.
         for (const state of this.peerStates.values()) {
-            const kept: PendingPeerRequest[] = [];
-            for (const pending of state.pending) {
-                if (pending.request.pieceIndex === pieceIndex) {
-                    clearTimeout(pending.timeout);
-                } else {
-                    kept.push(pending);
-                }
-            }
-            state.pending = kept;
+            this.dropPendingRequestsForPiece(state, pieceIndex);
         }
+    }
+
+    private dropPendingRequestsForPiece(state: PeerDownloadState, pieceIndex: number): void {
+        const kept: PendingPeerRequest[] = [];
+
+        for (const pending of state.pending) {
+            if (pending.request.pieceIndex === pieceIndex) {
+                clearTimeout(pending.timeout);
+                continue;
+            }
+
+            kept.push(pending);
+        }
+
+        state.pending = kept;
     }
 
     private pumpPeers(last?: PeerDownloadState): void {
@@ -405,6 +463,18 @@ export class DownloadManager {
 
 const isSameRequest = (a: PieceBlockRequest, b: PieceBlockRequest): boolean =>
     a.pieceIndex === b.pieceIndex && a.offset === b.offset && a.length === b.length;
+
+const createInitialPeerStats = (): PeerDownloadStats => ({
+    receivedBytes: 0,
+    receivedBlocks: 0,
+    timedOutRequests: 0,
+    sentRequests: 0,
+    completedPieces: 0,
+    invalidPieces: 0,
+    lastBlockAt: null,
+    totalRequestTimeMs: 0,
+    completedRequests: 0,
+});
 
 const unrefTimer = (timer: ReturnType<typeof setTimeout>): void => {
     if (typeof timer === 'object' && timer && 'unref' in timer) {

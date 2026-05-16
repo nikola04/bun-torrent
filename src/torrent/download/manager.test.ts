@@ -36,6 +36,7 @@ class FakeAvailability implements PieceAvailability {
 class FakePeer {
     public sent: PeerMessage[] = [];
     public peerAvailability: PieceAvailability;
+    private readonly throwOnRequest: boolean;
 
     private readonly messageListeners = new Set<(message: PeerMessage) => void>();
     private readonly closeListeners = new Set<() => void>();
@@ -43,12 +44,15 @@ class FakePeer {
     public constructor({
         choked = true,
         pieces = [0],
+        throwOnRequest = false,
     }: {
         choked?: boolean;
         pieces?: number[];
+        throwOnRequest?: boolean;
     } = {}) {
         this.choked = choked;
         this.peerAvailability = new FakeAvailability(new Set(pieces));
+        this.throwOnRequest = throwOnRequest;
     }
 
     public choked: boolean;
@@ -64,6 +68,8 @@ class FakePeer {
     }
 
     public sendMessage(message: PeerMessage): void {
+        if (this.throwOnRequest && message.type === 'request') throw new Error('send failed');
+
         this.sent.push(message);
     }
 
@@ -425,6 +431,29 @@ describe('DownloadManager', () => {
         expect(requestMessages(secondPeer)).toEqual([
             { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
         ]);
+    });
+
+    test('returns a request to the planner when sending to a peer fails', () => {
+        const pool = new FakePeerPool();
+        const manager = new DownloadManager({
+            metadata: makeMetadata(),
+            outputDirectory: '/tmp/download',
+            peerPool: asPeerPool(pool),
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const failedPeer = new FakePeer({ choked: false, throwOnRequest: true });
+        const nextPeer = new FakePeer({ choked: false });
+
+        manager.start();
+        pool.add(failedPeer);
+        pool.add(nextPeer);
+
+        expect(requestMessages(failedPeer)).toEqual([]);
+        expect(requestMessages(nextPeer)).toEqual([
+            { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
+        ]);
+
+        manager.close();
     });
 
     test('requeues timed-out requests to other peers first', async () => {
