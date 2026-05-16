@@ -1,5 +1,7 @@
 import type { TorrentMetadata } from '@torrent/types';
+import { constants } from 'node:fs';
 import { mkdir, open } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
     getPieceLength,
@@ -90,7 +92,7 @@ export const writePiece = async (
         const path = resolveTorrentFilePath(options.outputDirectory, write.path);
         await mkdir(dirname(path), { recursive: true });
 
-        const file = await open(path, 'a+');
+        const file = await openWritableFile(path);
         try {
             await file.write(
                 data.subarray(write.dataOffset, write.dataOffset + write.length),
@@ -156,6 +158,18 @@ const resolveTorrentFilePath = (outputDirectory: string, parts: string[]): strin
 
     return join(outputDirectory, ...parts);
 };
+
+const openWritableFile = async (path: string): Promise<FileHandle> => {
+    try {
+        return await open(path, constants.O_RDWR);
+    } catch (error) {
+        if (!isNotFoundError(error)) throw error;
+        return await open(path, constants.O_RDWR | constants.O_CREAT);
+    }
+};
+
+const isNotFoundError = (error: unknown): error is NodeJS.ErrnoException =>
+    error instanceof Error && 'code' in error && error.code === 'ENOENT';
 
 export { TorrentStorageError, TorrentStorageErrorCode } from './storage.error';
 export type { FileWrite, WritePieceOptions } from './types';
