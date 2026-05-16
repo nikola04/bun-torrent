@@ -223,9 +223,63 @@ describe('DefaultPiecePlanner', () => {
         });
     });
 
+    test('resets a completed piece for retry', () => {
+        const planner = createPiecePlanner(makeMetadata({ length: 4, pieceLength: 4, pieces: 1 }), {
+            blockLength: 2,
+        });
+        const first = planner.nextRequest()!;
+        planner.markPending(first);
+        const second = planner.nextRequest()!;
+        planner.markPending(second);
+        planner.receiveBlock({
+            type: 'piece',
+            pieceIndex: 0,
+            offset: 0,
+            block: new Uint8Array([1, 2]),
+        });
+        planner.receiveBlock({
+            type: 'piece',
+            pieceIndex: 0,
+            offset: 2,
+            block: new Uint8Array([3, 4]),
+        });
+
+        planner.resetPiece(0);
+
+        expect(planner.complete).toBe(false);
+        expect(planner.completedPieces).toBe(0);
+        expect(planner.getProgress(0)).toEqual({
+            pieceIndex: 0,
+            length: 4,
+            receivedBytes: 0,
+            status: 'missing',
+        });
+        expect(planner.nextRequest()).toEqual(first);
+    });
+
+    test('resets a partially received piece for retry', () => {
+        const planner = createPiecePlanner(makeMetadata({ length: 4, pieceLength: 4, pieces: 1 }), {
+            blockLength: 2,
+        });
+        const first = planner.nextRequest()!;
+        planner.markPending(first);
+        planner.receiveBlock({
+            type: 'piece',
+            pieceIndex: 0,
+            offset: 0,
+            block: new Uint8Array([1, 2]),
+        });
+
+        planner.resetPiece(0);
+
+        expect(planner.getProgress(0).receivedBytes).toBe(0);
+        expect(planner.nextRequest()).toEqual(first);
+    });
+
     test('throws planner errors for invalid piece indexes', () => {
         const planner = createPiecePlanner(makeMetadata({ length: 4, pieceLength: 4, pieces: 1 }));
 
         expectPlannerError(() => planner.getProgress(1), PiecePlannerErrorCode.INVALID_PIECE_INDEX);
+        expectPlannerError(() => planner.resetPiece(1), PiecePlannerErrorCode.INVALID_PIECE_INDEX);
     });
 });

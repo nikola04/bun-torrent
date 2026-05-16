@@ -224,4 +224,20 @@ export class DefaultPiecePlanner implements PiecePlanner {
             expectedHash: piece.expectedHash,
         };
     }
+
+    /**
+     * Return every block in a piece to the missing state.
+     *
+     * @param pieceIndex - Piece to retry after failed validation or storage.
+     * @throws {PiecePlannerError} When `pieceIndex` is outside the torrent piece range.
+     */
+    public resetPiece(pieceIndex: number): void {
+        const piece = this.getPiece(pieceIndex);
+        this.completed.delete(pieceIndex);
+
+        for (const block of piece.blocks) {
+            block.status = 'missing';
+            block.data = undefined;
+        }
+    }
 }

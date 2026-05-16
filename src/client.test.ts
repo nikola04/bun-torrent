@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { encodeBencode, toBValue } from '@torrent/index';
-import { Client } from './client';
+import { Client, DEFAULT_CLIENT_CONFIG } from './client';
 import { ClientError, ClientErrorCode } from './client.error';
 
 const makeTorrent = ({ announce }: { announce?: string } = {}): Uint8Array => {
@@ -78,6 +78,13 @@ describe('Client.inspect', () => {
 });
 
 describe('Client.download', () => {
+    test('exposes default download configuration', () => {
+        expect(DEFAULT_CLIENT_CONFIG).toEqual({
+            maxInFlightRequestsPerPeer: 20,
+            requestTimeoutMs: 15_000,
+        });
+    });
+
     test('returns an empty torrent instead of rejecting when no trackers are available', async () => {
         const states: string[] = [];
         const client = new Client();
@@ -87,7 +94,7 @@ describe('Client.download', () => {
             { onChangeState: (state) => states.push(state) },
         );
 
-        expect(states).toEqual(['parsing', 'tracking', 'connecting']);
+        expect(states).toEqual(['parsing', 'tracking', 'connecting', 'downloading']);
         expect(torrent.stats).toMatchObject({
             peers: 0,
             connections: 0,

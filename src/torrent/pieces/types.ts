@@ -26,6 +26,7 @@ export type PiecePlanner = {
     nextRequest(availablePieces?: PieceAvailability): PieceBlockRequest | undefined;
     markPending(request: PieceBlockRequest): void;
     receiveBlock(block: PieceBlock): PieceCompletion | undefined;
+    resetPiece(pieceIndex: number): void;
     resetPending(request: PieceBlockRequest): void;
     resetPeerRequests(requests: Iterable<PieceBlockRequest>): void;
 };

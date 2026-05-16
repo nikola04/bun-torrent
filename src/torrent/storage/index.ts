@@ -1,7 +1,12 @@
 import type { TorrentMetadata } from '@torrent/types';
 import { mkdir, open } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { getPieceLength } from '../pieces';
+import {
+    getPieceLength,
+    validatePiece,
+    type PieceCompletion,
+    type PieceValidationResult,
+} from '../pieces';
 import { TorrentStorageError, TorrentStorageErrorCode } from './storage.error';
 import type { FileWrite, WritePieceOptions } from './types';
 
@@ -93,6 +98,27 @@ export const writePiece = async (
             await file.close();
         }
     }
+};
+
+/**
+ * Validate a completed piece and write it only when its SHA-1 hash matches.
+ *
+ * @param metadata - Parsed torrent metadata.
+ * @param piece - Completed piece returned by the planner.
+ * @param options - Storage options including output directory.
+ * @returns Piece validation result. Invalid pieces are not written to disk.
+ * @throws {TorrentStorageError} When storage planning or file writing fails for a valid piece.
+ */
+export const writeValidatedPiece = async (
+    metadata: TorrentMetadata,
+    piece: PieceCompletion,
+    options: WritePieceOptions,
+): Promise<PieceValidationResult> => {
+    const validation = validatePiece(piece);
+    if (!validation.valid) return validation;
+
+    await writePiece(metadata, piece.pieceIndex, piece.data, options);
+    return validation;
 };
 
 const getStoragePieceLength = (metadata: TorrentMetadata, pieceIndex: number): number => {

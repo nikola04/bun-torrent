@@ -4,7 +4,14 @@ import type { TorrentMetadata } from '@torrent/types';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { planPieceWrites, TorrentStorageError, TorrentStorageErrorCode, writePiece } from './index';
+import { sha1 } from '@utils/sha1';
+import {
+    planPieceWrites,
+    TorrentStorageError,
+    TorrentStorageErrorCode,
+    writePiece,
+    writeValidatedPiece,
+} from './index';
 
 const makeMetadata = ({
     length,
@@ -252,5 +259,48 @@ describe('writePiece', () => {
                 code: TorrentStorageErrorCode.INVALID_FILE_PATH,
             });
         }
+    });
+});
+
+describe('writeValidatedPiece', () => {
+    test('writes a completed piece when its hash matches', async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), 'bun-torrent-storage-'));
+        const data = new Uint8Array([1, 2, 3, 4]);
+        const metadata = makeMetadata({
+            length: 4,
+            pieceLength: 4,
+            files: [{ path: ['file.bin'], length: 4, offset: 0 }],
+        });
+
+        const result = await writeValidatedPiece(
+            metadata,
+            { pieceIndex: 0, data, expectedHash: sha1(data) },
+            { outputDirectory },
+        );
+
+        expect(result.valid).toBe(true);
+        expect(await readBytes(join(outputDirectory, 'file.bin'))).toEqual([1, 2, 3, 4]);
+    });
+
+    test('does not write a completed piece when its hash does not match', async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), 'bun-torrent-storage-'));
+        const metadata = makeMetadata({
+            length: 4,
+            pieceLength: 4,
+            files: [{ path: ['file.bin'], length: 4, offset: 0 }],
+        });
+
+        const result = await writeValidatedPiece(
+            metadata,
+            {
+                pieceIndex: 0,
+                data: new Uint8Array([1, 2, 3, 4]),
+                expectedHash: sha1(new Uint8Array([4, 3, 2, 1])),
+            },
+            { outputDirectory },
+        );
+
+        expect(result.valid).toBe(false);
+        expect(await Bun.file(join(outputDirectory, 'file.bin')).exists()).toBe(false);
     });
 });

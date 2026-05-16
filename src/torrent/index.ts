@@ -1,6 +1,7 @@
 export { parseTorrent } from './parser/index';
 export { computeInfoHash } from './parser/info-hash';
 export { Torrent } from './session/index';
+export { DownloadManager } from './download';
 export {
     DEFAULT_BLOCK_LENGTH,
     createPiecePlanner,
@@ -16,6 +17,7 @@ export {
     TorrentStorageError,
     TorrentStorageErrorCode,
     writePiece,
+    writeValidatedPiece,
 } from './storage';
 
 export { decodeBencode, encodeBencode, toBValue } from './bencode';
@@ -39,6 +41,13 @@ export type {
     PieceStatus,
     PieceValidationResult,
 } from './pieces';
+export type {
+    DownloadManagerOptions,
+    DownloadPeerPool,
+    DownloadPeerSession,
+    DownloadProgress,
+    DownloadProgressListener,
+} from './download';
 export type { FileWrite, WritePieceOptions } from './storage';
 export type { TorrentStats } from './session/index';
 export type { TorrentMetadata } from './types';

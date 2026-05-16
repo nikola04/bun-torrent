@@ -143,6 +143,27 @@ describe('openPeerPool', () => {
         expect(pool.totalPeers).toBe(0);
         expect(await pool.done).toEqual([]);
     });
+
+    test('passes totalPieces to peer sessions', async () => {
+        const pool = await openPeerPool(makePeers(1), {
+            infoHash: bytes20,
+            peerId: bytes20,
+            targetConnections: 1,
+            minConnections: 1,
+            totalPieces: 923,
+            createSession(peer) {
+                return new FakeSession(
+                    peer,
+                    { delayMs: 1, succeeds: true },
+                    { current: 0, max: 0 },
+                );
+            },
+        });
+
+        const [session] = await pool.done;
+
+        expect(session?.connectOptions?.totalPieces).toBe(923);
+    });
 });
 
 describe('connectToPeers', () => {
@@ -237,6 +258,7 @@ const makePeers = (count: number): PeerInfo[] =>
 
 class FakeSession implements PeerConnectionSession {
     public closed = false;
+    public connectOptions: Parameters<PeerConnectionSession['connect']>[2];
     private settled = false;
     private rejectConnect: ((error: Error) => void) | null = null;
     private timer: ReturnType<typeof setTimeout> | null = null;
@@ -247,7 +269,12 @@ class FakeSession implements PeerConnectionSession {
         private readonly activity: { current: number; max: number },
     ) {}
 
-    public async connect(): Promise<void> {
+    public async connect(
+        _infoHash?: Uint8Array,
+        _peerId?: Uint8Array,
+        options?: Parameters<PeerConnectionSession['connect']>[2],
+    ): Promise<void> {
+        this.connectOptions = options;
         this.activity.current += 1;
         this.activity.max = Math.max(this.activity.max, this.activity.current);
 

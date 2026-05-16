@@ -18,6 +18,7 @@ export type PeerPoolOptions<TSession extends PeerConnectionSession = PeerSession
     infoHash: Uint8Array;
     peerId: Uint8Array;
     targetConnections: number;
+    totalPieces?: number;
     minConnections?: number;
     maxConnecting?: number;
     timeoutMs?: number;
@@ -28,6 +29,7 @@ type NormalizedPeerPoolOptions<TSession extends PeerConnectionSession> = {
     infoHash: Uint8Array;
     peerId: Uint8Array;
     targetConnections: number;
+    totalPieces?: number;
     minConnections: number;
     maxConnecting: number;
     timeoutMs: number;
@@ -140,6 +142,7 @@ export class PeerPool<TSession extends PeerConnectionSession = PeerSession> {
             void session
                 .connect(this.options.infoHash, this.options.peerId, {
                     timeoutMs: this.options.timeoutMs,
+                    totalPieces: this.options.totalPieces,
                 })
                 .then(() => this.handleConnected(session))
                 .catch((error) => this.handleFailed(session, error));
@@ -263,6 +266,7 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
         infoHash: options.infoHash,
         peerId: options.peerId,
         targetConnections,
+        totalPieces: options.totalPieces,
         minConnections,
         maxConnecting: Math.max(1, options.maxConnecting ?? DEFAULT_MAX_CONNECTING),
         timeoutMs: options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,

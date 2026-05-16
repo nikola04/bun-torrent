@@ -1,5 +1,7 @@
 import { HANDSHAKE_LENGTH } from '@peer/consts';
 import { decodeHandshake, encodeHandshake } from '@peer/handshake';
+import { decodePeerMessage, encodePeerMessage, type PeerMessage } from '@peer/messages';
+import { PeerPieceAvailability } from '@peer/availability';
 import type { PeerInfo } from '@tracker/types';
 import { concatBytes } from '@utils/buffers';
 import { BunTorrentError } from '@utils/errors';
@@ -10,6 +12,7 @@ const DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
 
 export type PeerSessionConnectOptions = {
     timeoutMs?: number;
+    totalPieces?: number;
 };
 
 export class PeerSession {
@@ -19,7 +22,9 @@ export class PeerSession {
     private amChoking: boolean = true;
     private amInterested: boolean = false;
 
-    private bitfield: Uint8Array | null = null;
+    private availability = new PeerPieceAvailability(0);
+    private readonly messageListeners = new Set<(message: PeerMessage) => void>();
+    private readonly closeListeners = new Set<() => void>();
 
     private handshakeDone: boolean = false;
     private buffer: Uint8Array = new Uint8Array(0);
@@ -35,6 +40,7 @@ export class PeerSession {
         options: PeerSessionConnectOptions = {},
     ): Promise<void> {
         const timeoutMs = options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
+        this.availability = new PeerPieceAvailability(options.totalPieces ?? 0);
 
         return new Promise((resolve, reject) => {
             if (this.closed) {
@@ -120,6 +126,7 @@ export class PeerSession {
             socket.once('error', rejectOnce);
             socket.once('close', () => {
                 this.socket = null;
+                this.notifyClosed();
                 if (!this.handshakeDone) {
                     rejectOnce(
                         new PeerSessionError(
@@ -133,12 +140,54 @@ export class PeerSession {
     }
 
     public close(): void {
+        if (this.closed) return;
+
         this.closed = true;
         this.socket?.destroy();
         this.socket = null;
         this.rejectPendingConnect?.(
             new PeerSessionError(PeerSessionErrorCode.CLOSED, 'Peer session closed'),
         );
+        this.notifyClosed();
+    }
+
+    public get peerAvailability(): PeerPieceAvailability {
+        return this.availability;
+    }
+
+    public get choked(): boolean {
+        return this.peerChoking;
+    }
+
+    public get interested(): boolean {
+        return this.amInterested;
+    }
+
+    public onMessage(callback: (message: PeerMessage) => void): () => void {
+        this.messageListeners.add(callback);
+
+        return () => {
+            this.messageListeners.delete(callback);
+        };
+    }
+
+    public onClose(callback: () => void): () => void {
+        this.closeListeners.add(callback);
+
+        return () => {
+            this.closeListeners.delete(callback);
+        };
+    }
+
+    public sendMessage(message: PeerMessage): void {
+        if (this.closed || !this.socket) {
+            throw new PeerSessionError(PeerSessionErrorCode.CLOSED, 'Peer session closed');
+        }
+
+        if (message.type === 'interested') this.amInterested = true;
+        if (message.type === 'not-interested') this.amInterested = false;
+
+        this.socket.write(encodePeerMessage(message));
     }
 
     private handleData(
@@ -168,6 +217,50 @@ export class PeerSession {
             this.buffer = this.buffer.slice(HANDSHAKE_LENGTH);
             resolve();
         }
+
+        while (this.handshakeDone && this.buffer.byteLength >= 4) {
+            const frameLength = new DataView(
+                this.buffer.buffer,
+                this.buffer.byteOffset,
+                4,
+            ).getUint32(0, false);
+            const totalLength = 4 + frameLength;
+
+            if (this.buffer.byteLength < totalLength) return;
+
+            const frame = this.buffer.slice(0, totalLength);
+            this.buffer = this.buffer.slice(totalLength);
+            this.handleMessage(decodePeerMessage(frame));
+        }
+    }
+
+    private handleMessage(message: PeerMessage): void {
+        switch (message.type) {
+            case 'choke':
+                this.peerChoking = true;
+                break;
+            case 'unchoke':
+                this.peerChoking = false;
+                break;
+            case 'interested':
+                this.peerInterested = true;
+                break;
+            case 'not-interested':
+                this.peerInterested = false;
+                break;
+            case 'bitfield':
+                this.availability.setBitfield(message.bitfield);
+                break;
+            case 'have':
+                this.availability.markHave(message.pieceIndex);
+                break;
+        }
+
+        for (const listener of this.messageListeners) listener(message);
+    }
+
+    private notifyClosed(): void {
+        for (const listener of this.closeListeners) listener();
     }
 }
 
