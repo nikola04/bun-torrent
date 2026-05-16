@@ -1,34 +1,19 @@
 import type { PeerMessage } from '../../peer/messages';
-import type {
-    PieceAvailability,
-    PieceBlockRequest,
-    PieceCompletion,
-    PiecePlanner,
-} from '../pieces';
+import type { PeerPool } from '../../peer/pool';
+import type { PeerSession } from '../../peer/session';
+import type { PieceBlockRequest, PieceCompletion, PiecePlanner } from '../pieces';
 import { createPiecePlanner } from '../pieces';
 import type { TorrentMetadata } from '../types';
 import { writeValidatedPiece, type WritePieceOptions } from '../storage';
 import { formatBytes } from '../../utils/formats';
 import type { TorrentFileSelection } from '../file-selection';
 import { getSelectedPieceIndexes } from '../file-selection';
+import { PeerScorer, type PeerDownloadStats } from './PeerScorer';
 
-export type DownloadPeerSession = {
-    readonly choked: boolean;
-    readonly peerAvailability: PieceAvailability;
-    onClose(callback: () => void): () => void;
-    onMessage(callback: (message: PeerMessage) => void): () => void;
-    sendMessage(message: PeerMessage): void;
-};
-
-export type DownloadPeerPool<TPeer extends DownloadPeerSession = DownloadPeerSession> = {
-    readonly done?: Promise<readonly TPeer[]>;
-    onSession(callback: (session: TPeer) => void): () => void;
-};
-
-export type DownloadManagerOptions<TPeer extends DownloadPeerSession = DownloadPeerSession> = {
+export type DownloadManagerOptions = {
     metadata: TorrentMetadata;
     outputDirectory: string;
-    peerPool: DownloadPeerPool<TPeer>;
+    peerPool: PeerPool;
     files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
     progressEvents?: DownloadProgressEventMode;
@@ -53,10 +38,11 @@ export type DownloadProgress = {
 
 export type DownloadProgressListener = (progress: DownloadProgress) => void;
 
-type PeerDownloadState<TPeer extends DownloadPeerSession> = {
-    peer: TPeer;
+type PeerDownloadState = {
+    peer: PeerSession;
     pending: PendingPeerRequest[];
     interestedSent: boolean;
+    stats: PeerDownloadStats;
     offClose: () => void;
     offMessage: () => void;
 };
@@ -64,6 +50,7 @@ type PeerDownloadState<TPeer extends DownloadPeerSession> = {
 type PendingPeerRequest = {
     request: PieceBlockRequest;
     timeout: ReturnType<typeof setTimeout>;
+    requestedAt: number;
 };
 
 const DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER = 20;
@@ -71,7 +58,7 @@ const DEFAULT_PROGRESS_EVENTS: DownloadProgressEventMode = 'piece';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_SPEED_SAMPLE_INTERVAL_MS = 500;
 
-export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSession> {
+export class DownloadManager {
     public readonly done: Promise<void>;
 
     private readonly planner: PiecePlanner;
@@ -79,7 +66,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     private readonly progressEvents: DownloadProgressEventMode;
     private readonly requestTimeoutMs: number;
     private readonly speedSampleIntervalMs: number;
-    private readonly peerStates = new Map<TPeer, PeerDownloadState<TPeer>>();
+    private readonly peerStates = new Map<PeerSession, PeerDownloadState>();
     private readonly progressListeners = new Set<DownloadProgressListener>();
     private readonly writeValidated: typeof writeValidatedPiece;
     private offSession: (() => void) | null = null;
@@ -89,7 +76,9 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     private resolveDone!: () => void;
     private rejectDone!: (error: unknown) => void;
 
-    public constructor(private readonly options: DownloadManagerOptions<TPeer>) {
+    private readonly peerScorer = new PeerScorer();
+
+    public constructor(private readonly options: DownloadManagerOptions) {
         this.planner =
             options.planner ??
             createPiecePlanner(options.metadata, {
@@ -150,6 +139,13 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         };
     }
 
+    public getPeerStats(peer: PeerSession): PeerDownloadStats | undefined {
+        const stats = this.peerStates.get(peer)?.stats;
+        if (!stats) return undefined;
+
+        return { ...stats };
+    }
+
     public close(): void {
         if (this.closed) return;
 
@@ -164,13 +160,24 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         this.resolveDone();
     }
 
-    private attachPeer(peer: TPeer): void {
+    private attachPeer(peer: PeerSession): void {
         if (this.closed || this.peerStates.has(peer)) return;
 
-        const state: PeerDownloadState<TPeer> = {
+        const state: PeerDownloadState = {
             peer,
             pending: [],
             interestedSent: false,
+            stats: {
+                receivedBytes: 0,
+                receivedBlocks: 0,
+                timedOutRequests: 0,
+                sentRequests: 0,
+                completedPieces: 0,
+                invalidPieces: 0,
+                lastBlockAt: null,
+                totalRequestTimeMs: 0,
+                completedRequests: 0,
+            },
             offClose: peer.onClose(() => this.handlePeerClosed(peer)),
             offMessage: peer.onMessage((message) => this.handlePeerMessage(peer, message)),
         };
@@ -179,7 +186,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         this.pumpPeer(state);
     }
 
-    private detachPeer(state: PeerDownloadState<TPeer>): void {
+    private detachPeer(state: PeerDownloadState): void {
         state.offClose();
         state.offMessage();
         this.clearPendingTimeouts(state.pending);
@@ -187,7 +194,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         state.pending = [];
     }
 
-    private handlePeerClosed(peer: TPeer): void {
+    private handlePeerClosed(peer: PeerSession): void {
         const state = this.peerStates.get(peer);
         if (!state) return;
 
@@ -195,7 +202,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         this.peerStates.delete(peer);
     }
 
-    private handlePeerMessage(peer: TPeer, message: PeerMessage): void {
+    private handlePeerMessage(peer: PeerSession, message: PeerMessage): void {
         const state = this.peerStates.get(peer);
         if (!state || this.closed) return;
 
@@ -210,7 +217,7 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
     }
 
     private async handlePiece(
-        state: PeerDownloadState<TPeer>,
+        state: PeerDownloadState,
         message: Extract<PeerMessage, { type: 'piece' }>,
     ): Promise<void> {
         const pendingIndex = state.pending.findIndex(
@@ -223,11 +230,12 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
 
         const [pending] = state.pending.splice(pendingIndex, 1);
         if (pending) clearTimeout(pending.timeout);
+        if (pending) this.recordReceivedBlock(state, pending, message);
 
         const completion = this.planner.receiveBlock(message);
 
         if (completion) {
-            await this.handleCompletion(completion);
+            await this.handleCompletion(state, completion);
             this.emitProgress();
         } else if (this.progressEvents === 'block') {
             this.emitProgress();
@@ -237,24 +245,36 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         this.resolveIfComplete();
     }
 
-    private async handleCompletion(completion: PieceCompletion): Promise<void> {
+    private async handleCompletion(
+        state: PeerDownloadState,
+        completion: PieceCompletion,
+    ): Promise<void> {
         const result = await this.writeValidated(this.options.metadata, completion, {
             outputDirectory: this.options.outputDirectory,
             files: this.options.files,
         } satisfies WritePieceOptions);
 
         if (!result.valid) {
+            state.stats.invalidPieces += 1;
             this.resetPieceForRetry(completion.pieceIndex);
+            return;
         }
+
+        state.stats.completedPieces += 1;
     }
 
-    private pumpPeer(state: PeerDownloadState<TPeer>): void {
+    private pumpPeer(state: PeerDownloadState): void {
         if (this.planner.complete) return;
 
         this.sendInterestedIfUseful(state);
         if (state.peer.choked) return;
 
-        while (state.pending.length < this.maxInFlightRequestsPerPeer) {
+        const requestLimit = this.peerScorer.getRequestLimit(
+            state.stats,
+            this.maxInFlightRequestsPerPeer,
+        );
+
+        while (state.pending.length < requestLimit) {
             const request = this.planner.nextRequest(state.peer.peerAvailability);
             if (!request) break;
 
@@ -267,15 +287,14 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
             state.pending.push({
                 request,
                 timeout,
+                requestedAt: Date.now(),
             });
+            state.stats.sentRequests += 1;
             state.peer.sendMessage(request);
         }
     }
 
-    private handleRequestTimeout(
-        state: PeerDownloadState<TPeer>,
-        request: PieceBlockRequest,
-    ): void {
+    private handleRequestTimeout(state: PeerDownloadState, request: PieceBlockRequest): void {
         if (this.closed || this.planner.complete) return;
 
         const pendingIndex = state.pending.findIndex((pending) =>
@@ -286,11 +305,12 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         const [pending] = state.pending.splice(pendingIndex, 1);
         if (pending) clearTimeout(pending.timeout);
 
+        state.stats.timedOutRequests += 1;
         this.planner.resetPending(request);
         this.pumpPeers(state);
     }
 
-    private sendInterestedIfUseful(state: PeerDownloadState<TPeer>): void {
+    private sendInterestedIfUseful(state: PeerDownloadState): void {
         if (state.interestedSent) return;
         if (!this.planner.nextRequest(state.peer.peerAvailability)) return;
 
@@ -314,11 +334,28 @@ export class DownloadManager<TPeer extends DownloadPeerSession = DownloadPeerSes
         }
     }
 
-    private pumpPeers(last?: PeerDownloadState<TPeer>): void {
-        for (const state of this.peerStates.values()) {
+    private pumpPeers(last?: PeerDownloadState): void {
+        const states = [...this.peerStates.values()].sort(
+            (a, b) => this.peerScorer.getScore(b.stats) - this.peerScorer.getScore(a.stats),
+        );
+        for (const state of states) {
             if (state !== last) this.pumpPeer(state);
         }
         if (last) this.pumpPeer(last);
+    }
+
+    private recordReceivedBlock(
+        state: PeerDownloadState,
+        pending: PendingPeerRequest,
+        message: Extract<PeerMessage, { type: 'piece' }>,
+    ): void {
+        const now = Date.now();
+
+        state.stats.receivedBytes += message.block.byteLength;
+        state.stats.receivedBlocks += 1;
+        state.stats.completedRequests += 1;
+        state.stats.totalRequestTimeMs += Math.max(0, now - pending.requestedAt);
+        state.stats.lastBlockAt = now;
     }
 
     private clearPendingTimeouts(pending: PendingPeerRequest[]): void {

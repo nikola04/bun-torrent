@@ -1,14 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { PeerMessage } from '../../peer/messages';
+import type { PeerPool } from '../../peer/pool';
+import type { PeerSession } from '../../peer/session';
 import { createPiecePlanner, type PieceAvailability, type PieceCompletion } from '../pieces';
 import type { TorrentMetadata } from '../types';
-import {
-    DownloadManager,
-    type DownloadManagerOptions,
-    type DownloadPeerPool,
-    type DownloadProgress,
-} from './manager';
+import { DownloadManager, type DownloadManagerOptions, type DownloadProgress } from './manager';
 
 const makeMetadata = ({
     length = 4,
@@ -82,7 +79,7 @@ class FakePeer {
     }
 }
 
-class FakePeerPool implements DownloadPeerPool<FakePeer> {
+class FakePeerPool {
     private readonly peers: FakePeer[] = [];
     private readonly listeners = new Set<(peer: FakePeer) => void>();
 
@@ -101,7 +98,7 @@ class FakePeerPool implements DownloadPeerPool<FakePeer> {
     }
 }
 
-type WriteValidatedPiece = NonNullable<DownloadManagerOptions<FakePeer>['writeValidatedPiece']>;
+type WriteValidatedPiece = NonNullable<DownloadManagerOptions['writeValidatedPiece']>;
 
 const makeWriteValidated = ({
     completions,
@@ -131,13 +128,16 @@ const requestMessages = (peer: FakePeer): Extract<PeerMessage, { type: 'request'
         return message.type === 'request';
     });
 
+const asPeerPool = (pool: FakePeerPool): PeerPool => pool as unknown as PeerPool;
+const asPeer = (peer: FakePeer): PeerSession => peer as unknown as PeerSession;
+
 describe('DownloadManager', () => {
     test('sends interested while choked when the peer has useful pieces', () => {
         const pool = new FakePeerPool();
         const manager = new DownloadManager({
             metadata: makeMetadata(),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             writeValidatedPiece: makeWriteValidated(),
         });
         const peer = new FakePeer({ choked: true });
@@ -153,7 +153,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata: makeMetadata({ length: 8, pieceLength: 4, pieces: 2 }),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             maxInFlightRequestsPerPeer: 2,
             writeValidatedPiece: makeWriteValidated(),
         });
@@ -175,7 +175,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata: makeMetadata(),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             writeValidatedPiece: makeWriteValidated({ completions }),
         });
         const peer = new FakePeer({ choked: false });
@@ -201,7 +201,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata,
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             maxInFlightRequestsPerPeer: 2,
             planner: createPiecePlanner(metadata, { blockLength: 2 }),
             writeValidatedPiece: makeWriteValidated(),
@@ -239,7 +239,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata,
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             maxInFlightRequestsPerPeer: 2,
             progressEvents: 'block',
             planner: createPiecePlanner(metadata, { blockLength: 2 }),
@@ -297,7 +297,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata,
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             maxInFlightRequestsPerPeer: 2,
             progressEvents: 'block',
             speedSampleIntervalMs: 1,
@@ -320,12 +320,66 @@ describe('DownloadManager', () => {
         expect(progress[1]!.speed).not.toBe('0.0 Bps');
     });
 
+    test('tracks per-peer download stats as requests complete and time out', async () => {
+        const pool = new FakePeerPool();
+        const metadata = makeMetadata({ length: 8, pieceLength: 4, pieces: 2 });
+        const manager = new DownloadManager({
+            metadata,
+            outputDirectory: '/tmp/download',
+            peerPool: asPeerPool(pool),
+            maxInFlightRequestsPerPeer: 1,
+            requestTimeoutMs: 20,
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const responsivePeer = new FakePeer({ choked: false, pieces: [0] });
+        const slowPeer = new FakePeer({ choked: false, pieces: [1] });
+
+        manager.start();
+        pool.add(responsivePeer);
+        pool.add(slowPeer);
+
+        responsivePeer.emit({
+            type: 'piece',
+            pieceIndex: 0,
+            offset: 0,
+            block: new Uint8Array([1, 2, 3, 4]),
+        });
+        await new Promise((resolve) => setTimeout(resolve, 30));
+
+        expect(manager.getPeerStats(asPeer(responsivePeer))).toMatchObject({
+            sentRequests: 1,
+            receivedBytes: 4,
+            receivedBlocks: 1,
+            completedRequests: 1,
+            completedPieces: 1,
+            invalidPieces: 0,
+            timedOutRequests: 0,
+        });
+        expect(typeof manager.getPeerStats(asPeer(responsivePeer))?.lastBlockAt).toBe('number');
+        expect(
+            manager.getPeerStats(asPeer(responsivePeer))?.totalRequestTimeMs,
+        ).toBeGreaterThanOrEqual(0);
+        expect(manager.getPeerStats(asPeer(slowPeer))).toMatchObject({
+            sentRequests: 2,
+            receivedBytes: 0,
+            receivedBlocks: 0,
+            completedRequests: 0,
+            completedPieces: 0,
+            invalidPieces: 0,
+            timedOutRequests: 1,
+            lastBlockAt: null,
+            totalRequestTimeMs: 0,
+        });
+
+        manager.close();
+    });
+
     test('retries a piece when validation fails', async () => {
         const pool = new FakePeerPool();
         const manager = new DownloadManager({
             metadata: makeMetadata(),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             writeValidatedPiece: makeWriteValidated({ valid: false }),
         });
         const peer = new FakePeer({ choked: false });
@@ -339,6 +393,14 @@ describe('DownloadManager', () => {
             { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
             { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
         ]);
+        expect(manager.getPeerStats(asPeer(peer))).toMatchObject({
+            receivedBytes: 4,
+            receivedBlocks: 1,
+            completedRequests: 1,
+            completedPieces: 0,
+            invalidPieces: 1,
+            sentRequests: 2,
+        });
     });
 
     test('returns pending peer requests to the planner when a peer closes', () => {
@@ -346,7 +408,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata: makeMetadata({ length: 8, pieceLength: 4, pieces: 2 }),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             writeValidatedPiece: makeWriteValidated(),
         });
         const firstPeer = new FakePeer({ choked: false, pieces: [0] });
@@ -370,7 +432,7 @@ describe('DownloadManager', () => {
         const manager = new DownloadManager({
             metadata: makeMetadata({ length: 4, pieceLength: 4, pieces: 1 }),
             outputDirectory: '/tmp/download',
-            peerPool: pool,
+            peerPool: asPeerPool(pool),
             requestTimeoutMs: 50,
             writeValidatedPiece: makeWriteValidated(),
         });

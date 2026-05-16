@@ -54,7 +54,7 @@ describe('Torrent', () => {
         expect(pool.closed).toBe(true);
     });
 
-    test('emits peer, state, done, and close events', async () => {
+    test('emits peer stats, state, done, and close events', async () => {
         const pool = new FakePeerPool();
         const manager = new FakeDownloadManager();
         const torrent = new Torrent(makeMetadata(), pool, manager);
@@ -79,7 +79,16 @@ describe('Torrent', () => {
 
         torrent.close();
 
-        expect(peers).toEqual([peer]);
+        expect(peers).toEqual([
+            {
+                peers: 10,
+                connections: 1,
+                connecting: 2,
+                connectionAttempts: 3,
+                failedConnections: 4,
+                targetConnections: 5,
+            },
+        ]);
         expect(states).toEqual(['downloading->completed', 'completed->closed']);
         expect(done).toBe(true);
         expect(closed).toBe(true);

@@ -26,7 +26,7 @@ export type TorrentEventMap = {
     close: [];
     done: [];
     error: [error: unknown];
-    peer: [session: unknown];
+    peer: [stats: TorrentStats];
     progress: [progress: DownloadProgress];
     state: [change: TorrentStateChange];
 };
@@ -145,8 +145,8 @@ export class Torrent {
         listener: TorrentEventListener<TEvent>,
     ): () => void {
         if (event === 'peer') {
-            return this.peerPool.onSession((session) => {
-                (listener as TorrentEventListener<'peer'>)(session);
+            return this.peerPool.onSession(() => {
+                (listener as TorrentEventListener<'peer'>)(this.stats);
             });
         }
 

@@ -49,11 +49,10 @@ export type {
 } from './pieces';
 export type {
     DownloadManagerOptions,
-    DownloadPeerPool,
-    DownloadPeerSession,
     DownloadProgress,
     DownloadProgressEventMode,
     DownloadProgressListener,
+    PeerDownloadStats,
 } from './download';
 export type { TorrentFileSelection } from './file-selection';
 export type { FileWrite, WritePieceOptions } from './storage';
