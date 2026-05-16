@@ -20,6 +20,8 @@ jobs:
     publish-npm:
         needs: check
         runs-on: ubuntu-latest
+        environment:
+            name: npm
         steps:
             - uses: actions/checkout@v4
             - uses: oven-sh/setup-bun@v2
@@ -28,4 +30,4 @@ jobs:
                   node-version: 22
                   registry-url: https://registry.npmjs.org/
             - run: bun install --frozen-lockfile
-            - run: npm publish
+            - run: npm publish --tag beta
