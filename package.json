@@ -1,6 +1,6 @@
 {
     "name": "bun-torrent",
-    "version": "0.0.0",
+    "version": "0.0.1-beta",
     "type": "module",
     "module": "src/index.ts",
     "license": "MIT",
