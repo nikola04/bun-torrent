@@ -7,8 +7,7 @@ import { concatBytes } from '../../utils/buffers';
 import { BunTorrentError } from '../../utils/errors';
 import { createConnection, type Socket } from 'node:net';
 import { PeerSessionError, PeerSessionErrorCode } from './session.error';
-
-const DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
+import { defaults } from '../../configs/defaults';
 
 export type PeerSessionConnectOptions = {
     timeoutMs?: number;
@@ -39,7 +38,7 @@ export class PeerSession {
         peerId: Uint8Array,
         options: PeerSessionConnectOptions = {},
     ): Promise<void> {
-        const timeoutMs = options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
+        const timeoutMs = options.timeoutMs ?? defaults.peers.connectTimeoutMs;
         this.availability = new PeerPieceAvailability(options.totalPieces ?? 0);
 
         return new Promise((resolve, reject) => {
@@ -224,6 +223,13 @@ export class PeerSession {
                 this.buffer.byteOffset,
                 4,
             ).getUint32(0, false);
+
+            const maxPeerMessageLength = 1 + 8 + defaults.pieces.blockSize; // add 4 bytes prefix
+            if (frameLength > maxPeerMessageLength) {
+                this.close();
+                return;
+            }
+
             const totalLength = 4 + frameLength;
 
             if (this.buffer.byteLength < totalLength) return;

@@ -9,7 +9,6 @@ export {
 } from './file-selection';
 export { DownloadManager } from './download';
 export {
-    DEFAULT_BLOCK_LENGTH,
     createPiecePlanner,
     getPieceLength,
     isValidBlockForRequest,

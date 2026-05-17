@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-export { Client, DEFAULT_CLIENT_CONFIG, DownloadState, TorrentClient } from './client';
+export { Client, DownloadState, TorrentClient } from './client';
 export { ClientError, ClientErrorCode } from './client.error';
 export type { ClientConfig, DownloadOptions, TorrentFileInput } from './client';
 

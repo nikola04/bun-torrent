@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { encodeBencode, toBValue } from './torrent/index';
-import { Client, DEFAULT_CLIENT_CONFIG } from './client';
+import { Client } from './client';
 import { ClientError, ClientErrorCode } from './client.error';
 
 const makeTorrent = ({ announce }: { announce?: string } = {}): Uint8Array => {
@@ -82,21 +82,6 @@ describe('Client.inspect', () => {
 });
 
 describe('Client.download', () => {
-    test('exposes default download configuration', () => {
-        expect(DEFAULT_CLIENT_CONFIG).toEqual({
-            maxInFlightRequestsPerPeer: 20,
-            maxConnecting: 30,
-            minConnections: 0,
-            peerConnectTimeoutMs: 5_000,
-            progressEvents: 'piece',
-            requestTimeoutMs: 15_000,
-            seed: false,
-            speedSampleIntervalMs: 500,
-            targetConnections: 20,
-            trackerTimeoutMs: 5_000,
-        });
-    });
-
     test('uses configurable peer connection targets', async () => {
         const client = new Client({ targetConnections: 40 });
 
@@ -106,6 +91,15 @@ describe('Client.download', () => {
         );
 
         expect(torrent.stats.targetConnections).toBe(12);
+        await torrent.done;
+    });
+
+    test('uses default peer connection targets when none are configured', async () => {
+        const client = new Client();
+
+        const torrent = await client.download({ torrentFile: makeTorrent() });
+
+        expect(torrent.stats.targetConnections).toBe(20);
         await torrent.done;
     });
 

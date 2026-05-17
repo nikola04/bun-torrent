@@ -1,9 +1,9 @@
 import { decodeBencode, type BValue } from '../torrent/bencode';
 import type { TorrentMetadata } from '../torrent/types';
-import { DEFAULT_ANNOUNCE_PORT, type AnnounceOptions, type PeerInfo } from './types';
+import { type AnnounceOptions, type PeerInfo } from './types';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
+import { defaults } from '../configs/defaults';
 
-const DEFAULT_HTTP_TRACKER_TIMEOUT_MS = 5_000;
 const textDecoder = new TextDecoder();
 
 export const announceHttp = async (
@@ -15,7 +15,7 @@ export const announceHttp = async (
     const controller = new AbortController();
     const timeout = setTimeout(
         () => controller.abort(),
-        options.timeoutMs ?? DEFAULT_HTTP_TRACKER_TIMEOUT_MS,
+        options.timeoutMs ?? defaults.trackers.timeoutMs,
     );
 
     let response: Response;
@@ -101,7 +101,7 @@ const buildHttpAnnounceUrl = (
     const params = [
         `info_hash=${percentEncodeBytes(meta.infoHash)}`,
         `peer_id=${percentEncodeBytes(peerId)}`,
-        `port=${options.announcePort ?? DEFAULT_ANNOUNCE_PORT}`,
+        `port=${options.announcePort ?? defaults.trackers.announcePort}`,
         'uploaded=0',
         'downloaded=0',
         `left=${meta.length}`,

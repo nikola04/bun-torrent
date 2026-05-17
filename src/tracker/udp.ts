@@ -1,7 +1,8 @@
 import type { TorrentMetadata } from '../torrent/types';
 import { lookup } from 'dns/promises';
-import { DEFAULT_ANNOUNCE_PORT, type AnnounceOptions, type PeerInfo } from './types';
+import { type AnnounceOptions, type PeerInfo } from './types';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
+import { defaults } from '../configs/defaults';
 
 export const announceUdp = async (
     tracker: string,
@@ -13,8 +14,8 @@ export const announceUdp = async (
     const { address: host } = await lookup(url.hostname);
 
     const trackerPort = parseInt(url.port, 10);
-    const timeoutMs = options.timeoutMs ?? 1_000;
-    const announcePort = options.announcePort ?? DEFAULT_ANNOUNCE_PORT;
+    const timeoutMs = options.timeoutMs ?? defaults.trackers.timeoutMs;
+    const announcePort = options.announcePort ?? defaults.trackers.announcePort;
 
     let phase: 'connect' | 'announce' = 'connect';
     const connectTxId = randomU32();

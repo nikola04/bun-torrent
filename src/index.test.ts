@@ -10,7 +10,6 @@ test('public entrypoint exposes the stable client API', () => {
     expect(api).toHaveProperty('Client');
     expect(api).toHaveProperty('Torrent');
     expect(api).toHaveProperty('TorrentState');
-    expect(api).toHaveProperty('DEFAULT_CLIENT_CONFIG');
     expect(api).toHaveProperty('ClientError');
     expect(api).toHaveProperty('BunTorrentError');
 });

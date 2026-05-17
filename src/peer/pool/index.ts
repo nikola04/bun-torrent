@@ -1,9 +1,7 @@
 import { PeerSession, type PeerSessionConnectOptions } from '../session';
 import type { PeerInfo } from '../../tracker/types';
 import { PeerPoolError, PeerPoolErrorCode } from './pool.error';
-
-const DEFAULT_MAX_CONNECTING = 20;
-const DEFAULT_CONNECT_TIMEOUT_MS = 3_000;
+import { defaults } from '../../configs/defaults';
 
 export type PeerConnectionSession = {
     connect(
@@ -254,7 +252,10 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
     options: PeerPoolOptions<TSession>,
 ): NormalizedPeerPoolOptions<TSession> => {
     const targetConnections = assertPositiveInteger(options.targetConnections, 'targetConnections');
-    const minConnections = assertNonNegativeInteger(options.minConnections ?? 1, 'minConnections');
+    const minConnections = assertNonNegativeInteger(
+        options.minConnections ?? defaults.peerPool.minConnections,
+        'minConnections',
+    );
     if (minConnections > targetConnections) {
         throw new PeerPoolError(
             PeerPoolErrorCode.INVALID_OPTION,
@@ -268,8 +269,8 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
         targetConnections,
         totalPieces: options.totalPieces,
         minConnections,
-        maxConnecting: Math.max(1, options.maxConnecting ?? DEFAULT_MAX_CONNECTING),
-        timeoutMs: options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+        maxConnecting: Math.max(1, options.maxConnecting ?? defaults.peerPool.maxConnecting),
+        timeoutMs: options.timeoutMs ?? defaults.peerPool.connectTimeoutMs,
         createSession:
             options.createSession ??
             ((peer: PeerInfo) => new PeerSession(peer) as unknown as TSession),

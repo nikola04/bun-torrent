@@ -1,16 +1,15 @@
 import type { TorrentMetadata } from '../torrent/types';
 import { announceHttp } from './http';
-import { DEFAULT_ANNOUNCE_PORT, type AnnounceTracker, type PeerInfo } from './types';
+import { type AnnounceTracker, type PeerInfo } from './types';
 import { announceUdp } from './udp';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
-
-const DEFAULT_TRACKER_TIMEOUT_MS = 5_000;
+import { defaults } from '../configs/defaults';
 
 export const trackPeers = async ({
     meta,
     peerId,
-    announcePort = DEFAULT_ANNOUNCE_PORT,
-    timeoutMs = DEFAULT_TRACKER_TIMEOUT_MS,
+    announcePort = defaults.trackers.announcePort,
+    timeoutMs = defaults.trackers.timeoutMs,
     udp = announceUdp,
     http = announceHttp,
 }: {

@@ -8,6 +8,7 @@ import { ClientError, ClientErrorCode } from './client.error';
 import { trackPeers, TrackerError, TrackerErrorCode } from './tracker';
 import type { TorrentFileSelection } from './torrent/file-selection';
 import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from './torrent/file-selection';
+import { defaults } from './configs/defaults';
 
 export enum DownloadState {
     PARSING = 'parsing',
@@ -30,33 +31,6 @@ export type ClientConfig = {
     targetConnections?: number;
     trackerTimeoutMs?: number;
 };
-
-export const DEFAULT_CLIENT_CONFIG = {
-    maxInFlightRequestsPerPeer: 20,
-    maxConnecting: 30,
-    minConnections: 0,
-    peerConnectTimeoutMs: 5_000,
-    progressEvents: 'piece',
-    requestTimeoutMs: 15_000,
-    seed: false,
-    speedSampleIntervalMs: 500,
-    targetConnections: 20,
-    trackerTimeoutMs: 5_000,
-} as const satisfies Required<
-    Pick<
-        ClientConfig,
-        | 'maxInFlightRequestsPerPeer'
-        | 'maxConnecting'
-        | 'minConnections'
-        | 'peerConnectTimeoutMs'
-        | 'progressEvents'
-        | 'requestTimeoutMs'
-        | 'seed'
-        | 'speedSampleIntervalMs'
-        | 'targetConnections'
-        | 'trackerTimeoutMs'
-    >
->;
 
 export class Client {
     private readonly peerId: Uint8Array;
@@ -170,35 +144,27 @@ const resolveDownloadConfig = (
     maxInFlightRequestsPerPeer:
         options.maxInFlightRequestsPerPeer ??
         config.maxInFlightRequestsPerPeer ??
-        DEFAULT_CLIENT_CONFIG.maxInFlightRequestsPerPeer,
-    maxConnecting:
-        options.maxConnecting ?? config.maxConnecting ?? DEFAULT_CLIENT_CONFIG.maxConnecting,
+        defaults.download.maxInFlightRequestsPerPeer,
+    maxConnecting: options.maxConnecting ?? config.maxConnecting ?? defaults.peers.maxConnecting,
     minConnections:
-        options.minConnections ?? config.minConnections ?? DEFAULT_CLIENT_CONFIG.minConnections,
+        options.minConnections ?? config.minConnections ?? defaults.peers.minConnections,
     outputDirectory: options.outputDirectory ?? config.outputDirectory ?? process.cwd(),
     peerConnectTimeoutMs:
         options.peerConnectTimeoutMs ??
         config.peerConnectTimeoutMs ??
-        DEFAULT_CLIENT_CONFIG.peerConnectTimeoutMs,
-    progressEvents:
-        options.progressEvents ?? config.progressEvents ?? DEFAULT_CLIENT_CONFIG.progressEvents,
+        defaults.peers.connectTimeoutMs,
+    progressEvents: options.progressEvents ?? config.progressEvents ?? defaults.progress.events,
     requestTimeoutMs:
-        options.requestTimeoutMs ??
-        config.requestTimeoutMs ??
-        DEFAULT_CLIENT_CONFIG.requestTimeoutMs,
-    seed: options.seed ?? config.seed ?? DEFAULT_CLIENT_CONFIG.seed,
+        options.requestTimeoutMs ?? config.requestTimeoutMs ?? defaults.download.requestTimeoutMs,
+    seed: options.seed ?? config.seed ?? defaults.download.seed,
     speedSampleIntervalMs:
         options.speedSampleIntervalMs ??
         config.speedSampleIntervalMs ??
-        DEFAULT_CLIENT_CONFIG.speedSampleIntervalMs,
+        defaults.progress.speedSampleIntervalMs,
     targetConnections:
-        options.targetConnections ??
-        config.targetConnections ??
-        DEFAULT_CLIENT_CONFIG.targetConnections,
+        options.targetConnections ?? config.targetConnections ?? defaults.peers.targetConnections,
     trackerTimeoutMs:
-        options.trackerTimeoutMs ??
-        config.trackerTimeoutMs ??
-        DEFAULT_CLIENT_CONFIG.trackerTimeoutMs,
+        options.trackerTimeoutMs ?? config.trackerTimeoutMs ?? defaults.trackers.timeoutMs,
 });
 
 const assertValidFileSelection = (

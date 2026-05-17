@@ -9,6 +9,7 @@ import { formatBytes } from '../../utils/formats';
 import type { TorrentFileSelection } from '../file-selection';
 import { getSelectedPieceIndexes } from '../file-selection';
 import { PeerScorer, type PeerDownloadStats } from './PeerScorer';
+import { defaults } from '../../configs/defaults';
 
 export type DownloadManagerOptions = {
     metadata: TorrentMetadata;
@@ -53,11 +54,6 @@ type PendingPeerRequest = {
     requestedAt: number;
 };
 
-const DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER = 20;
-const DEFAULT_PROGRESS_EVENTS: DownloadProgressEventMode = 'piece';
-const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
-const DEFAULT_SPEED_SAMPLE_INTERVAL_MS = 500;
-
 export class DownloadManager {
     public readonly done: Promise<void>;
 
@@ -85,11 +81,11 @@ export class DownloadManager {
                 pieceIndexes: getSelectedPieceIndexes(options.metadata, options.files),
             });
         this.maxInFlightRequestsPerPeer =
-            options.maxInFlightRequestsPerPeer ?? DEFAULT_MAX_IN_FLIGHT_REQUESTS_PER_PEER;
-        this.progressEvents = options.progressEvents ?? DEFAULT_PROGRESS_EVENTS;
-        this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+            options.maxInFlightRequestsPerPeer ?? defaults.download.maxInFlightRequestsPerPeer;
+        this.progressEvents = options.progressEvents ?? defaults.progress.events;
+        this.requestTimeoutMs = options.requestTimeoutMs ?? defaults.download.requestTimeoutMs;
         this.speedSampleIntervalMs =
-            options.speedSampleIntervalMs ?? DEFAULT_SPEED_SAMPLE_INTERVAL_MS;
+            options.speedSampleIntervalMs ?? defaults.progress.speedSampleIntervalMs;
         this.writeValidated = options.writeValidatedPiece ?? writeValidatedPiece;
         this.done = new Promise((resolve, reject) => {
             this.resolveDone = resolve;

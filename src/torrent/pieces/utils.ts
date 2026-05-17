@@ -1,8 +1,7 @@
 import type { TorrentMetadata } from '../types';
 import type { PieceBlock, PieceBlockRequest } from './types';
 import { PiecePlannerError, PiecePlannerErrorCode } from './planner.error';
-
-export const DEFAULT_BLOCK_LENGTH = 16 * 1024;
+import { defaults } from '../../configs/defaults';
 
 /**
  * Return the byte length of a piece, including the usually shorter final piece.
@@ -31,14 +30,14 @@ export const getPieceLength = (metadata: TorrentMetadata, pieceIndex: number): n
  *
  * @param pieceIndex - Zero-based piece index.
  * @param pieceLength - Total byte length of the piece being split.
- * @param blockLength - Maximum bytes per request. Defaults to `DEFAULT_BLOCK_LENGTH`.
+ * @param blockLength - Maximum bytes per request. Defaults to `defaults.pieces.blockSize`.
  * @returns Request messages that cover the piece in order.
  * @throws {PiecePlannerError} When `pieceLength` or `blockLength` is not a positive integer.
  */
 export const splitPieceIntoRequests = ({
     pieceIndex,
     pieceLength,
-    blockLength = DEFAULT_BLOCK_LENGTH,
+    blockLength = defaults.pieces.blockSize,
 }: {
     pieceIndex: number;
     pieceLength: number;
