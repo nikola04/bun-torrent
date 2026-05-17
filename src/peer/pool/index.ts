@@ -253,7 +253,7 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
 ): NormalizedPeerPoolOptions<TSession> => {
     const targetConnections = assertPositiveInteger(options.targetConnections, 'targetConnections');
     const minConnections = assertNonNegativeInteger(
-        options.minConnections ?? defaults.peerPool.minConnections,
+        options.minConnections ?? defaults.peers.minConnections,
         'minConnections',
     );
     if (minConnections > targetConnections) {
@@ -269,8 +269,8 @@ const normalizeOptions = <TSession extends PeerConnectionSession>(
         targetConnections,
         totalPieces: options.totalPieces,
         minConnections,
-        maxConnecting: Math.max(1, options.maxConnecting ?? defaults.peerPool.maxConnecting),
-        timeoutMs: options.timeoutMs ?? defaults.peerPool.connectTimeoutMs,
+        maxConnecting: Math.max(1, options.maxConnecting ?? defaults.peers.maxConnecting),
+        timeoutMs: options.timeoutMs ?? defaults.peers.connectTimeoutMs,
         createSession:
             options.createSession ??
             ((peer: PeerInfo) => new PeerSession(peer) as unknown as TSession),

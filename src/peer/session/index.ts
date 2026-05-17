@@ -1,7 +1,7 @@
 import { HANDSHAKE_LENGTH } from '../consts';
 import { decodeHandshake, encodeHandshake } from '../handshake';
 import { decodePeerMessage, encodePeerMessage, type PeerMessage } from '../messages';
-import { PeerPieceAvailability } from '../availability';
+import { createPeerPieceAvailability, type PeerPieceAvailability } from '../availability';
 import type { PeerInfo } from '../../tracker/types';
 import { concatBytes } from '../../utils/buffers';
 import { BunTorrentError } from '../../utils/errors';
@@ -21,7 +21,7 @@ export class PeerSession {
     private amChoking: boolean = true;
     private amInterested: boolean = false;
 
-    private availability = new PeerPieceAvailability(0);
+    private availability = createPeerPieceAvailability(0);
     private readonly messageListeners = new Set<(message: PeerMessage) => void>();
     private readonly closeListeners = new Set<() => void>();
 
@@ -39,7 +39,7 @@ export class PeerSession {
         options: PeerSessionConnectOptions = {},
     ): Promise<void> {
         const timeoutMs = options.timeoutMs ?? defaults.peers.connectTimeoutMs;
-        this.availability = new PeerPieceAvailability(options.totalPieces ?? 0);
+        this.availability = createPeerPieceAvailability(options.totalPieces ?? 0);
 
         return new Promise((resolve, reject) => {
             if (this.closed) {

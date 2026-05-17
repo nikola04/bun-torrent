@@ -8,11 +8,6 @@ export const defaults = {
         maxConnecting: 30,
         connectTimeoutMs: 5_000,
     },
-    peerPool: {
-        minConnections: 1,
-        maxConnecting: 20,
-        connectTimeoutMs: 3_000,
-    },
     download: {
         maxInFlightRequestsPerPeer: 20,
         requestTimeoutMs: 15_000,

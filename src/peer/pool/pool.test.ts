@@ -144,6 +144,17 @@ describe('openPeerPool', () => {
         expect(await pool.done).toEqual([]);
     });
 
+    test('defaults to zero minimum connections', async () => {
+        const pool = await openPeerPool([], {
+            infoHash: bytes20,
+            peerId: bytes20,
+            targetConnections: 2,
+        });
+
+        expect(pool.size).toBe(0);
+        expect(await pool.done).toEqual([]);
+    });
+
     test('passes totalPieces to peer sessions', async () => {
         const pool = await openPeerPool(makePeers(1), {
             infoHash: bytes20,
