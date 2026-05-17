@@ -313,7 +313,7 @@ export class DownloadManager {
             () => this.handleRequestTimeout(state, request),
             this.requestTimeoutMs,
         );
-        unrefTimer(timeout);
+        timeout.unref();
 
         state.pending.push({
             request,
@@ -475,9 +475,3 @@ const createInitialPeerStats = (): PeerDownloadStats => ({
     totalRequestTimeMs: 0,
     completedRequests: 0,
 });
-
-const unrefTimer = (timer: ReturnType<typeof setTimeout>): void => {
-    if (typeof timer === 'object' && timer && 'unref' in timer) {
-        (timer as { unref: () => void }).unref();
-    }
-};
