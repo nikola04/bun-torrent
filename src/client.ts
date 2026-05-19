@@ -57,7 +57,8 @@ export class Client {
 
     public async download(input: DownloadInput, options: DownloadOptions = {}): Promise<Torrent> {
         options.onChangeState?.(DownloadState.PARSING);
-        const meta = input.meta ?? await this.inspect(input, { timeout: options.trackerTimeoutMs });
+        const meta =
+            input.meta ?? (await this.inspect(input, { timeout: options.trackerTimeoutMs }));
         const downloadConfig = resolveDownloadConfig(this.config, options);
         assertValidFileSelection(meta, downloadConfig.files);
 
@@ -98,11 +99,11 @@ export class Client {
         input: InspectInput,
         options?: { timeout?: number },
     ): Promise<TorrentMetadata> {
-        if (input.torrentFile) {
+        if ('torrentFile' in input && input.torrentFile !== undefined) {
             const bytes = await readTorrentFile(input.torrentFile);
             return parseTorrent(bytes);
         }
-        if (input.magnet) {
+        if ('magnet' in input && input.magnet !== undefined && input.magnet !== null) {
             return parseMagnet(input.magnet, this.peerId, options);
         }
         throw new BunTorrentError('No input provided', 'NO_INPUT');
@@ -200,7 +201,7 @@ const assertValidFileSelection = (
 
 export type TorrentFileInput = string | Uint8Array | ArrayBuffer;
 
-export const readTorrentFile = async (input: TorrentFileInput): Promise<Uint8Array> => {
+export const readTorrentFile = async (input: unknown): Promise<Uint8Array> => {
     if (typeof input === 'string') return await Bun.file(input).bytes();
     if (input instanceof Uint8Array) return input;
     if (input instanceof ArrayBuffer) return new Uint8Array(input);
