@@ -132,15 +132,16 @@ export class DefaultPiecePlanner implements PiecePlanner {
                   : 'missing',
         };
     }
-
     /**
      * Pick the next missing block request.
      *
      * @param availablePieces - Optional peer availability filter, usually backed by bitfield/have state.
      * @returns The next request to send, or `undefined` when nothing is currently requestable.
      */
-    public nextRequest(availablePieces?: PieceAvailability): PieceBlockRequest | undefined {
-        for (const piece of this.pieces) {
+    public nextRequest(availablePieces?: PieceAvailability, availability?: Map<number, number>): PieceBlockRequest | undefined {
+        const pieces = availability ? [...this.pieces].sort((a, b) => ((availability.get(a.pieceIndex) ?? 0) - (availability.get(b.pieceIndex) ?? 0)) || a.pieceIndex - b.pieceIndex) : this.pieces;
+
+        for (const piece of pieces) {
             if (!this.selectedPieces.has(piece.pieceIndex)) continue;
             if (this.completed.has(piece.pieceIndex)) continue;
             if (availablePieces && !availablePieces.hasPiece(piece.pieceIndex)) continue;

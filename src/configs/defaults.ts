@@ -9,7 +9,8 @@ export const defaults = {
         connectTimeoutMs: 5_000,
     },
     download: {
-        maxInFlightRequestsPerPeer: 20,
+        maxInFlightRequestsPerPeer: 300,
+        baseInFlightRequestsPerPeer: 8,
         requestTimeoutMs: 15_000,
         seed: false,
     },

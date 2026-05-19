@@ -25,7 +25,7 @@ export type PiecePlanner = {
     readonly totalPieces: number;
 
     getProgress(pieceIndex: number): PieceProgress;
-    nextRequest(availablePieces?: PieceAvailability): PieceBlockRequest | undefined;
+    nextRequest(availablePieces?: PieceAvailability, availability?: Map<number, number>): PieceBlockRequest | undefined;
     markPending(request: PieceBlockRequest): void;
     receiveBlock(block: PieceBlock): PieceCompletion | undefined;
     resetPiece(pieceIndex: number): void;

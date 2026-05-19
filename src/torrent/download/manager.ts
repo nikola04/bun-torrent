@@ -266,7 +266,9 @@ export class DownloadManager {
         const requestLimit = this.getPeerRequestLimit(state);
 
         while (state.pending.length < requestLimit) {
-            const request = this.planner.nextRequest(state.peer.peerAvailability);
+            const availability = new Map();
+            this.peerStates.values().forEach(v => v.peer.peerAvailability.toPieceIndexes().forEach(v => availability.set(v, (availability.get(v) ?? 0) + 1)))
+            const request = this.planner.nextRequest(state.peer.peerAvailability, availability);
             if (!request) break;
 
             if (!this.sendRequest(state, request)) break;
@@ -294,7 +296,7 @@ export class DownloadManager {
     }
 
     private hasUsefulRequest(state: PeerDownloadState): boolean {
-        return this.planner.nextRequest(state.peer.peerAvailability) !== null;
+        return this.planner.nextRequest(state.peer.peerAvailability) !== undefined;
     }
 
     private getPeerRequestLimit(state: PeerDownloadState): number {
