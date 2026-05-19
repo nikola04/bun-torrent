@@ -1,6 +1,7 @@
 import { BunTorrentError } from '../../utils/errors';
 
 export enum MagnetParseErrorCode {
+    INVALID_URI = 'INVALID_MAGNET_URI',
     INVALID_XT = 'INVALID_XT_PARAM',
     NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
     NO_METADATA = 'NO_METADATA',

@@ -12,7 +12,7 @@ export const parseMagnet = async (
     peerId: Uint8Array,
     options?: { timeout?: number },
 ): Promise<TorrentMetadata> => {
-    const data = parseURI(magnet);
+    const data = parseMagnetURI(magnet);
 
     if (data.trackers.length <= 0) {
         throw new MagnetParseError(
@@ -63,8 +63,18 @@ export const parseMagnet = async (
     }
 };
 
-const parseURI = (uri: string): ParsedMagnetURI => {
-    const url = new URL(uri);
+export const parseMagnetURI = (uri: string): ParsedMagnetURI => {
+    let url: URL;
+    try {
+        url = new URL(uri);
+    } catch {
+        throw new MagnetParseError(MagnetParseErrorCode.INVALID_URI, 'Invalid magnet URI');
+    }
+
+    if (url.protocol !== 'magnet:') {
+        throw new MagnetParseError(MagnetParseErrorCode.INVALID_URI, 'Invalid magnet URI scheme');
+    }
+
     const params = new URLSearchParams(url.search);
 
     const xt = params.get('xt');
@@ -80,8 +90,12 @@ const parseURI = (uri: string): ParsedMagnetURI => {
         throw new MagnetParseError(MagnetParseErrorCode.INVALID_XT, 'Invalid info hash length');
     }
 
+    if (raw.length === 40 && !isHex(raw)) {
+        throw new MagnetParseError(MagnetParseErrorCode.INVALID_XT, 'Invalid hex info hash');
+    }
+
     return {
-        infoHash: isHex(raw) ? Uint8Array.fromHex(raw) : decodeBase32(raw),
+        infoHash: raw.length === 40 ? Uint8Array.fromHex(raw) : decodeBase32(raw),
         name,
         trackers,
     };
