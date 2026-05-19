@@ -32,14 +32,30 @@ class FakeAvailability implements PieceAvailability {
         return this.pieces.has(pieceIndex);
     }
 
+    public markHave(pieceIndex: number): void {
+        this.pieces.add(pieceIndex);
+    }
+
+    public setBitfield(bitfield: Uint8Array): void {
+        this.pieces.clear();
+
+        for (let pieceIndex = 0; pieceIndex < bitfield.byteLength * 8; pieceIndex += 1) {
+            const byte = bitfield[Math.floor(pieceIndex / 8)];
+            if (byte === undefined) continue;
+
+            const mask = 0x80 >> (pieceIndex % 8);
+            if ((byte & mask) !== 0) this.pieces.add(pieceIndex);
+        }
+    }
+
     public toPieceIndexes(): number[] {
-        return Array.from(this.pieces);
+        return Array.from(this.pieces).sort((a, b) => a - b);
     }
 }
 
 class FakePeer {
     public sent: PeerMessage[] = [];
-    public peerAvailability: PieceAvailability;
+    public peerAvailability: FakeAvailability;
     private readonly throwOnRequest: boolean;
 
     private readonly messageListeners = new Set<(message: PeerMessage) => void>();
@@ -80,6 +96,8 @@ class FakePeer {
     public emit(message: PeerMessage): void {
         if (message.type === 'choke') this.choked = true;
         if (message.type === 'unchoke') this.choked = false;
+        if (message.type === 'have') this.peerAvailability.markHave(message.pieceIndex);
+        if (message.type === 'bitfield') this.peerAvailability.setBitfield(message.bitfield);
 
         for (const listener of this.messageListeners) listener(message);
     }
@@ -175,6 +193,75 @@ describe('DownloadManager', () => {
         expect(peer.sent[0]).toEqual({ type: 'interested' });
         expect(requestMessages(peer)).toEqual([
             { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
+            { type: 'request', pieceIndex: 1, offset: 0, length: 4 },
+        ]);
+    });
+
+    test('prefers the least available useful piece for a peer', () => {
+        const pool = new FakePeerPool();
+        const manager = new DownloadManager({
+            metadata: makeMetadata({ length: 8, pieceLength: 4, pieces: 2 }),
+            outputDirectory: '/tmp/download',
+            peerPool: asPeerPool(pool),
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const firstPeer = new FakePeer({ choked: false, pieces: [0] });
+        const secondPeer = new FakePeer({ choked: false, pieces: [0, 1] });
+
+        manager.start();
+        pool.add(firstPeer);
+        pool.add(secondPeer);
+
+        expect(requestMessages(firstPeer)).toEqual([
+            { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
+        ]);
+        expect(requestMessages(secondPeer)).toEqual([
+            { type: 'request', pieceIndex: 1, offset: 0, length: 4 },
+        ]);
+    });
+
+    test('updates piece availability after a peer announces have', () => {
+        const pool = new FakePeerPool();
+        const manager = new DownloadManager({
+            metadata: makeMetadata({ length: 8, pieceLength: 4, pieces: 2 }),
+            outputDirectory: '/tmp/download',
+            peerPool: asPeerPool(pool),
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const firstPeer = new FakePeer({ choked: false, pieces: [0] });
+        const secondPeer = new FakePeer({ choked: false, pieces: [0] });
+
+        manager.start();
+        pool.add(firstPeer);
+        pool.add(secondPeer);
+        secondPeer.emit({ type: 'have', pieceIndex: 1 });
+
+        expect(requestMessages(firstPeer)).toEqual([
+            { type: 'request', pieceIndex: 0, offset: 0, length: 4 },
+        ]);
+        expect(requestMessages(secondPeer)).toEqual([
+            { type: 'request', pieceIndex: 1, offset: 0, length: 4 },
+        ]);
+    });
+
+    test('replaces piece availability after a peer announces a bitfield', () => {
+        const pool = new FakePeerPool();
+        const manager = new DownloadManager({
+            metadata: makeMetadata({ length: 12, pieceLength: 4, pieces: 3 }),
+            outputDirectory: '/tmp/download',
+            peerPool: asPeerPool(pool),
+            maxInFlightRequestsPerPeer: 1,
+            writeValidatedPiece: makeWriteValidated(),
+        });
+        const stalePeer = new FakePeer({ choked: true, pieces: [1] });
+        const requester = new FakePeer({ choked: false, pieces: [1, 2] });
+
+        manager.start();
+        pool.add(stalePeer);
+        stalePeer.emit({ type: 'bitfield', bitfield: new Uint8Array([0b0010_0000]) });
+        pool.add(requester);
+
+        expect(requestMessages(requester)).toEqual([
             { type: 'request', pieceIndex: 1, offset: 0, length: 4 },
         ]);
     });
