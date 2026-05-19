@@ -30,10 +30,20 @@ export type OpenExtendedConnectionOptions = {
     peerId: Uint8Array;
     timeoutMs?: number;
     localExtensions: Record<string, number>;
+    createSocket?: (peer: PeerInfo) => ExtendedSocket;
 };
 
 const EXTENSION_PROTOCOL_RESERVED_BYTE_INDEX = 5;
 const EXTENSION_PROTOCOL_RESERVED_MASK = 0x10;
+
+type ExtendedSocket = {
+    on(event: 'connect', listener: () => void): void;
+    on(event: 'data', listener: (data: string | Uint8Array<ArrayBufferLike>) => void): void;
+    on(event: 'error', listener: (error: unknown) => void): void;
+    on(event: 'close', listener: () => void): void;
+    write(data: Uint8Array): unknown;
+    destroy(): void;
+};
 
 export const openExtendedConnection = async ({
     peer,
@@ -41,12 +51,10 @@ export const openExtendedConnection = async ({
     peerId,
     timeoutMs = defaults.peers.connectTimeoutMs,
     localExtensions,
+    createSocket = ({ ip, port }) => createConnection({ host: ip, port }),
 }: OpenExtendedConnectionOptions): Promise<ExtendedConnection> => {
     return new Promise((resolve, reject) => {
-        const socket = createConnection({
-            host: peer.ip,
-            port: peer.port,
-        });
+        const socket = createSocket(peer);
 
         let settled = false;
         let closed = false;

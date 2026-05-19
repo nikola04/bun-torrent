@@ -2,13 +2,14 @@ import type { PeerInfo } from '../../../tracker';
 import { defaults } from '../../../configs/defaults';
 import { decodeBencode, type BValue } from '../../../torrent';
 import { sha1 } from '../../../utils/sha1';
-import { openExtendedConnection } from '../connection';
+import { openExtendedConnection, type OpenExtendedConnectionOptions } from '../connection';
 import { PeerExtendedError, PeerExtendedErrorCode } from '../errors';
 import { MetadataAssembler } from './assembler';
 import { encodeMetadataRequest, parseMetadataData } from './messages';
 
 export type FetchMetadataFromPeerOptions = {
     timeoutMs?: number;
+    createSocket?: OpenExtendedConnectionOptions['createSocket'];
 };
 
 const LOCAL_UT_METADATA_ID = 1;
@@ -27,6 +28,7 @@ export const fetchMetadataFromPeer = async (
         peerId,
         timeoutMs,
         localExtensions: { [UT_METADATA_EXTENSION]: LOCAL_UT_METADATA_ID },
+        createSocket: options.createSocket,
     });
 
     const remoteUtMetadataId = connection.remoteExtensions.get(UT_METADATA_EXTENSION);
