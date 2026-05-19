@@ -98,6 +98,7 @@ export const decodePeerMessage = (input: Uint8Array): PeerMessage => {
         case PeerMessageId.Bitfield:
             return { type: 'bitfield', bitfield: payload };
         case PeerMessageId.Extended:
+            assertMinPayloadLength(payload, 1, 'extended');
             return { type: 'extended', extId: payload[0]!, data: payload.subarray(1) };
         case PeerMessageId.Request:
             assertPayloadLength(payload, 12, 'request');

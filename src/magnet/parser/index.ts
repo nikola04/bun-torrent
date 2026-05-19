@@ -1,5 +1,5 @@
 import { defaults } from '../../configs/defaults';
-import { fetchExtendedFromPeer } from '../../peer/extended';
+import { fetchMetadataFromPeer } from '../../peer/extended';
 import { type TorrentMetadata } from '../../torrent';
 import { trackPeers } from '../../tracker';
 import { decodeBase32 } from '../base32';
@@ -36,12 +36,9 @@ export const parseMagnet = async (
     try {
         raw = await Promise.any(
             peers.map((p) =>
-                fetchExtendedFromPeer(
-                    p,
-                    data.infoHash,
-                    peerId,
-                    options?.timeout ?? defaults.magnet.peerTimeoutMs,
-                ),
+                fetchMetadataFromPeer(p, data.infoHash, peerId, {
+                    timeoutMs: options?.timeout ?? defaults.magnet.peerTimeoutMs,
+                }),
             ),
         );
     } catch {
