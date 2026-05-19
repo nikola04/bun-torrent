@@ -6,8 +6,6 @@ A minimal Bun-native BitTorrent download-only client written in TypeScript.
 
 It has no runtime dependencies.
 
-> This package is currently beta software. The API can still change before a stable release.
-
 ## Requirements
 
 - Bun `>= 1.3.0`
@@ -15,13 +13,13 @@ It has no runtime dependencies.
 ## Installation
 
 ```bash
-bun add bun-torrent@beta
+bun add bun-torrent
 ```
 
 or:
 
 ```bash
-npm install bun-torrent@beta
+npm install bun-torrent
 ```
 
 ## Basic Usage

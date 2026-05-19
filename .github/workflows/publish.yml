@@ -32,4 +32,4 @@ jobs:
             - run: bun install --frozen-lockfile
             - run: bun run build
             - run: npm pack --dry-run
-            - run: npm publish --access public --tag beta --provenance
+            - run: npm publish --access public --provenance
