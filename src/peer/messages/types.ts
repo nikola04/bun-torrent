@@ -8,6 +8,7 @@ export enum PeerMessageId {
     Request = 6,
     Piece = 7,
     Cancel = 8,
+    Extended = 20,
 }
 
 export type KeepAliveMessage = {
@@ -33,6 +34,12 @@ export type NotInterestedMessage = {
 export type HaveMessage = {
     type: 'have';
     pieceIndex: number;
+};
+
+export type ExtendedMessage = {
+    type: 'extended';
+    extId: number;
+    data: Uint8Array;
 };
 
 export type BitfieldMessage = {
@@ -68,6 +75,7 @@ export type PeerMessage =
     | InterestedMessage
     | NotInterestedMessage
     | HaveMessage
+    | ExtendedMessage
     | BitfieldMessage
     | RequestMessage
     | PieceMessage

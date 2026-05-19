@@ -6,7 +6,7 @@ import { defaults } from '../configs/defaults';
 
 export const announceUdp = async (
     tracker: string,
-    meta: TorrentMetadata,
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length'>,
     peerId: Uint8Array,
     options: AnnounceOptions = {},
 ): Promise<PeerInfo[]> => {
@@ -153,7 +153,7 @@ const buildAnnounceRequest = (
     connHigh: number,
     connLow: number,
     txId: number,
-    meta: TorrentMetadata,
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length'>,
     peerId: Uint8Array,
     announcePort: number,
 ): Uint8Array => {

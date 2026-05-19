@@ -13,7 +13,7 @@ export const trackPeers = async ({
     udp = announceUdp,
     http = announceHttp,
 }: {
-    meta: TorrentMetadata;
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length' | 'announce' | 'announceList'>;
     peerId: Uint8Array;
     announcePort?: number;
     timeoutMs?: number;
@@ -22,7 +22,7 @@ export const trackPeers = async ({
 }): Promise<PeerInfo[]> => {
     validateAnnouncePort(announcePort);
 
-    const trackers = [meta.announce, ...meta.announceList.flat()].filter(Boolean) as string[];
+    const trackers = [...meta.announceList.flat(), meta.announce].filter(Boolean) as string[];
     const announceRequests = trackers.flatMap((tracker) => {
         if (tracker.startsWith('udp://')) return [{ tracker, announce: udp }];
         if (tracker.startsWith('http://') || tracker.startsWith('https://')) {

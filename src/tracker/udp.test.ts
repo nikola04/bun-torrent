@@ -25,7 +25,7 @@ const makeMeta = ({
 
 describe('trackPeers', () => {
     test('rejects when there are no supported trackers', async () => {
-        await expect(
+        expect(
             trackPeers({
                 meta: makeMeta({
                     announce: 'wss://tracker.test/announce',
@@ -51,11 +51,11 @@ describe('trackPeers', () => {
                 peerId,
                 udp: async (tracker) => {
                     calls.push(tracker);
-                    throw causes[0];
+                    throw causes[1];
                 },
                 http: async (tracker) => {
                     calls.push(tracker);
-                    throw causes[1];
+                    throw causes[0];
                 },
             });
             throw new Error('Expected trackPeers to throw');
@@ -64,8 +64,8 @@ describe('trackPeers', () => {
             expect((error as TrackerError).code).toBe(TrackerErrorCode.ANNOUNCE_FAILED);
             expect((error as TrackerError).causes).toEqual(causes);
             expect(calls).toEqual([
-                'udp://tracker-a.test:80/announce',
                 'https://tracker-b.test/announce',
+                'udp://tracker-a.test:80/announce',
             ]);
         }
     });
@@ -77,7 +77,7 @@ describe('trackPeers', () => {
         ];
         let callCount = 0;
 
-        await expect(
+        expect(
             trackPeers({
                 meta: makeMeta({
                     announce: 'udp://tracker-a.test:80/announce',
@@ -142,7 +142,7 @@ describe('trackPeers', () => {
     });
 
     test('rejects invalid announce ports', async () => {
-        await expect(
+        expect(
             trackPeers({
                 meta: makeMeta({ announce: 'udp://tracker.test:6969/announce' }),
                 peerId,

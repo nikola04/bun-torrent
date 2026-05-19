@@ -2,7 +2,7 @@
 
 A minimal Bun-native BitTorrent download-only client written in TypeScript.
 
-`bun-torrent` can parse `.torrent` files, announce to HTTP and UDP trackers, connect to peers, download pieces, validate piece hashes, and write the downloaded files to disk. The public API is intentionally small: create a `Client`, inspect a torrent when you need metadata, then call `download()`.
+`bun-torrent` can parse `.torrent` files and tracker-backed magnet links, announce to HTTP and UDP trackers, connect to peers, download pieces, validate piece hashes, and write the downloaded files to disk. The public API is intentionally small: create a `Client`, inspect a torrent when you need metadata, then call `download()`.
 
 It has no runtime dependencies.
 
@@ -110,6 +110,39 @@ console.log(metadata.files);
 ```
 
 Torrent file input can be a file path, `Uint8Array`, or `ArrayBuffer`.
+
+## Magnet Links
+
+Magnet links are supported when they include at least one HTTP, HTTPS, or UDP tracker through the `tr` parameter. Metadata is fetched from peers with the `ut_metadata` extension before the normal download flow starts.
+
+```ts
+const magnet =
+    'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567' +
+    '&dn=file.bin' +
+    '&tr=udp%3A%2F%2Ftracker.example.com%3A6969%2Fannounce';
+
+const metadata = await client.inspect({ magnet });
+
+console.log(metadata.name);
+console.log(metadata.files);
+
+const torrent = await client.download(
+    { magnet },
+    {
+        outputDirectory: './downloads',
+    },
+);
+
+await torrent.done;
+```
+
+Supported magnet fields:
+
+- `xt=urn:btih:<infoHash>`: required. Hex-encoded 40-character info hashes and base32 32-character info hashes are supported.
+- `dn`: optional display name.
+- `tr`: optional tracker URL. Multiple `tr` parameters are supported.
+
+Trackerless magnets are not supported yet because DHT peer discovery is not implemented. A magnet without `tr` currently fails during inspection with a DHT-not-implemented error.
 
 ## Download Options
 

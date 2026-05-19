@@ -18,6 +18,13 @@ export {
     PiecePlannerErrorCode,
 } from './torrent/index';
 
+export {
+    MagnetParseError,
+    MagnetParseErrorCode,
+    Base32DecoderError,
+    Base32DecoderErrorCode,
+} from './magnet';
+
 export { PeerPoolError, PeerPoolErrorCode, PeerSessionError, PeerSessionErrorCode } from './peer';
 export { TrackerError, TrackerErrorCode } from './tracker';
 

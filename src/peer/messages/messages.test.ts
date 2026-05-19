@@ -143,6 +143,14 @@ describe('decodePeerMessage', () => {
         );
     });
 
+    test('decodes extended messages', () => {
+        expect(decodePeerMessage(new Uint8Array([0, 0, 0, 4, 20, 1, 2, 3]))).toEqual({
+            type: 'extended',
+            extId: 1,
+            data: new Uint8Array([2, 3]),
+        });
+    });
+
     test('decodes request', () => {
         expect(
             decodePeerMessage(
@@ -208,6 +216,13 @@ describe('decodePeerMessage', () => {
         );
     });
 
+    test('rejects extended messages without an extended id', () => {
+        expectPeerMessageError(
+            () => decodePeerMessage(new Uint8Array([0, 0, 0, 1, 20])),
+            PeerMessageErrorCode.INVALID_PAYLOAD_LENGTH,
+        );
+    });
+
     test('rejects unknown message id', () => {
         expectPeerMessageError(
             () => decodePeerMessage(new Uint8Array([0, 0, 0, 1, 99])),
@@ -219,6 +234,7 @@ describe('decodePeerMessage', () => {
         const messages = [
             { type: 'have', pieceIndex: 7 },
             { type: 'bitfield', bitfield: new Uint8Array([0b10100000]) },
+            { type: 'extended', extId: 1, data: new Uint8Array([2, 3]) },
             { type: 'request', pieceIndex: 7, offset: 16_384, length: 16_384 },
             { type: 'piece', pieceIndex: 7, offset: 16_384, block: new Uint8Array([1, 2, 3]) },
             { type: 'cancel', pieceIndex: 7, offset: 16_384, length: 16_384 },

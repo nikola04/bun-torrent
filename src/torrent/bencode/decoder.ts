@@ -6,6 +6,11 @@ export const decodeBencode = (input: Uint8Array): BValue => {
     return decoder.decode();
 };
 
+export const decodeBencodePartial = (input: Uint8Array): { value: BValue; bytesRead: number } => {
+    const decoder = createDecoder({ input });
+    return decoder.decodePartial();
+};
+
 const createDecoder = ({
     input,
     strict = true,
@@ -168,12 +173,18 @@ const createDecoder = ({
         return value;
     };
 
+    const decodePartial = (): { value: BValue; bytesRead: number } => {
+        const value = readValue();
+        return { value, bytesRead: offset };
+    };
+
     const fail = (code: BencodeDecodeErrorCode, message: string): never => {
         throw new BencodeDecodeError(code, message, offset);
     };
 
     return {
         decode,
+        decodePartial,
     };
 };
 

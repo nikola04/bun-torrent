@@ -9,7 +9,7 @@ export type AnnounceOptions = {
 
 export type AnnounceTracker = (
     tracker: string,
-    meta: TorrentMetadata,
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length'>,
     peerId: Uint8Array,
     options?: AnnounceOptions,
 ) => Promise<PeerInfo[]>;
