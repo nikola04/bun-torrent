@@ -31,6 +31,10 @@ class FakeAvailability implements PieceAvailability {
     public hasPiece(pieceIndex: number): boolean {
         return this.pieces.has(pieceIndex);
     }
+
+    public toPieceIndexes(): number[] {
+        return Array.from(this.pieces);
+    }
 }
 
 class FakePeer {

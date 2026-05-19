@@ -44,6 +44,7 @@ type PeerDownloadState = {
     pending: PendingPeerRequest[];
     interestedSent: boolean;
     stats: PeerDownloadStats;
+    availablePieces: Set<number>;
     offClose: () => void;
     offMessage: () => void;
 };
@@ -65,6 +66,7 @@ export class DownloadManager {
     private readonly peerStates = new Map<PeerSession, PeerDownloadState>();
     private readonly progressListeners = new Set<DownloadProgressListener>();
     private readonly writeValidated: typeof writeValidatedPiece;
+    private readonly pieceAvailability = new Map<number, number>();
     private offSession: (() => void) | null = null;
     private lastProgressSample: { receivedBytes: number; timestampMs: number } | null = null;
     private currentSpeedBytesPerSecond = 0;
@@ -176,10 +178,12 @@ export class DownloadManager {
             pending: [],
             interestedSent: false,
             stats: createInitialPeerStats(),
+            availablePieces: new Set(peer.peerAvailability.toPieceIndexes()),
             offClose: peer.onClose(() => this.handlePeerClosed(peer)),
             offMessage: peer.onMessage((message) => this.handlePeerMessage(peer, message)),
         };
 
+        state.availablePieces.forEach((index) => this.incrementPieceAvailability(index));
         this.peerStates.set(peer, state);
         this.pumpPeer(state);
     }
@@ -191,6 +195,8 @@ export class DownloadManager {
         this.clearPendingTimeouts(state.pending);
         this.planner.resetPeerRequests(state.pending.map((pending) => pending.request));
         state.pending = [];
+
+        state.availablePieces.forEach((index) => this.decrementPieceAvailability(index));
     }
 
     private handlePeerClosed(peer: PeerSession): void {
@@ -201,12 +207,51 @@ export class DownloadManager {
         this.peerStates.delete(peer);
     }
 
+    private syncPeerAvailability(state: PeerDownloadState): void {
+        const nextAvailablePieces = new Set(state.peer.peerAvailability.toPieceIndexes());
+
+        for (const pieceIndex of nextAvailablePieces) {
+            if (!state.availablePieces.has(pieceIndex)) {
+                this.incrementPieceAvailability(pieceIndex);
+            }
+        }
+
+        for (const pieceIndex of state.availablePieces) {
+            if (!nextAvailablePieces.has(pieceIndex)) {
+                this.decrementPieceAvailability(pieceIndex);
+            }
+        }
+
+        state.availablePieces = nextAvailablePieces;
+    }
+
+    private incrementPieceAvailability(pieceIndex: number): void {
+        this.pieceAvailability.set(pieceIndex, (this.pieceAvailability.get(pieceIndex) ?? 0) + 1);
+    }
+
+    private decrementPieceAvailability(pieceIndex: number): void {
+        const availability = this.pieceAvailability.get(pieceIndex) ?? 0;
+
+        if (availability <= 1) {
+            this.pieceAvailability.delete(pieceIndex);
+            return;
+        }
+
+        this.pieceAvailability.set(pieceIndex, availability - 1);
+    }
+
     private handlePeerMessage(peer: PeerSession, message: PeerMessage): void {
         const state = this.peerStates.get(peer);
         if (!state || this.closed) return;
 
-        // Availability/choke changes are scheduling signals even when no block data arrived.
-        if (message.type === 'unchoke' || message.type === 'have' || message.type === 'bitfield') {
+        if (message.type === 'have' || message.type === 'bitfield') {
+            this.syncPeerAvailability(state);
+            this.pumpPeer(state);
+            return;
+        }
+
+        // Choke changes are scheduling signals even when no block data arrived.
+        if (message.type === 'unchoke') {
             this.pumpPeer(state);
             return;
         }
@@ -266,9 +311,10 @@ export class DownloadManager {
         const requestLimit = this.getPeerRequestLimit(state);
 
         while (state.pending.length < requestLimit) {
-            const availability = new Map();
-            this.peerStates.values().forEach(v => v.peer.peerAvailability.toPieceIndexes().forEach(v => availability.set(v, (availability.get(v) ?? 0) + 1)))
-            const request = this.planner.nextRequest(state.peer.peerAvailability, availability);
+            const request = this.planner.nextRequest(
+                state.peer.peerAvailability,
+                this.pieceAvailability,
+            );
             if (!request) break;
 
             if (!this.sendRequest(state, request)) break;
