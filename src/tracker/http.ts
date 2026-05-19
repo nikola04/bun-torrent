@@ -8,7 +8,7 @@ const textDecoder = new TextDecoder();
 
 export const announceHttp = async (
     tracker: string,
-    meta: TorrentMetadata,
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length'>,
     peerId: Uint8Array,
     options: AnnounceOptions = {},
 ): Promise<PeerInfo[]> => {
@@ -91,7 +91,7 @@ export const parseHttpAnnounceResponse = (data: Uint8Array): PeerInfo[] => {
 
 const buildHttpAnnounceUrl = (
     tracker: string,
-    meta: TorrentMetadata,
+    meta: Pick<TorrentMetadata, 'infoHash' | 'length'>,
     peerId: Uint8Array,
     options: AnnounceOptions,
 ): string => {

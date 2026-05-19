@@ -19,6 +19,11 @@ export const encodePeerMessage = (message: PeerMessage): Uint8Array => {
             return encodeFrame(PeerMessageId.Have, writeUInt32(message.pieceIndex));
         case 'bitfield':
             return encodeFrame(PeerMessageId.Bitfield, message.bitfield);
+        case 'extended':
+            return encodeFrame(
+                PeerMessageId.Extended,
+                concatBytes([new Uint8Array([message.extId]), message.data]),
+            );
         case 'request':
             return encodeFrame(
                 PeerMessageId.Request,
@@ -92,6 +97,8 @@ export const decodePeerMessage = (input: Uint8Array): PeerMessage => {
             return { type: 'have', pieceIndex: readUInt32(payload, 0) };
         case PeerMessageId.Bitfield:
             return { type: 'bitfield', bitfield: payload };
+        case PeerMessageId.Extended:
+            return { type: 'extended', extId: payload[0]!, data: payload.subarray(1) };
         case PeerMessageId.Request:
             assertPayloadLength(payload, 12, 'request');
             return {

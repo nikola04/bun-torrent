@@ -9,6 +9,8 @@ import { trackPeers, TrackerError, TrackerErrorCode } from './tracker';
 import type { TorrentFileSelection } from './torrent/file-selection';
 import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from './torrent/file-selection';
 import { defaults } from './configs/defaults';
+import { BunTorrentError } from './utils/errors';
+import { parseMagnet } from './magnet';
 
 export enum DownloadState {
     PARSING = 'parsing',
@@ -32,6 +34,20 @@ export type ClientConfig = {
     trackerTimeoutMs?: number;
 };
 
+type InspectInput =
+    | {
+          torrentFile: string | Uint8Array | ArrayBuffer;
+          magnet?: undefined | null;
+          meta?: null;
+      }
+    | {
+          magnet: string;
+          torrentFile?: undefined | null;
+          meta?: null;
+      };
+
+type DownloadInput = { meta: TorrentMetadata } | InspectInput;
+
 export class Client {
     private readonly peerId: Uint8Array;
 
@@ -39,14 +55,9 @@ export class Client {
         this.peerId = createPeerId();
     }
 
-    public async download(
-        input: {
-            torrentFile: string | Uint8Array | ArrayBuffer;
-        },
-        options: DownloadOptions = {},
-    ): Promise<Torrent> {
+    public async download(input: DownloadInput, options: DownloadOptions = {}): Promise<Torrent> {
         options.onChangeState?.(DownloadState.PARSING);
-        const meta = await this.inspect(input);
+        const meta = input.meta ?? await this.inspect(input, { timeout: options.trackerTimeoutMs });
         const downloadConfig = resolveDownloadConfig(this.config, options);
         assertValidFileSelection(meta, downloadConfig.files);
 
@@ -83,11 +94,18 @@ export class Client {
         );
     }
 
-    public async inspect(input: {
-        torrentFile: string | Uint8Array | ArrayBuffer;
-    }): Promise<TorrentMetadata> {
-        const bytes = await readTorrentFile(input.torrentFile);
-        return parseTorrent(bytes);
+    public async inspect(
+        input: InspectInput,
+        options?: { timeout?: number },
+    ): Promise<TorrentMetadata> {
+        if (input.torrentFile) {
+            const bytes = await readTorrentFile(input.torrentFile);
+            return parseTorrent(bytes);
+        }
+        if (input.magnet) {
+            return parseMagnet(input.magnet, this.peerId, options);
+        }
+        throw new BunTorrentError('No input provided', 'NO_INPUT');
     }
 
     private async trackPeers(

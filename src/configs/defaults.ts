@@ -22,4 +22,8 @@ export const defaults = {
         announcePort: 6881,
         timeoutMs: 5_000,
     },
+    magnet: {
+        trackerTimeoutMs: 3_000,
+        peerTimeoutMs: 5_000,
+    },
 } as const;
