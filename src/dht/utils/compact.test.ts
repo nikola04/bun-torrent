@@ -19,7 +19,9 @@ describe('compact DHT peers', () => {
     });
 
     it('decodes concatenated compact IPv4 peer info', () => {
-        expect(decodeCompactPeers(new Uint8Array([127, 0, 0, 1, 0x1a, 0xe1, 10, 0, 0, 2, 0, 80]))).toEqual([
+        expect(
+            decodeCompactPeers(new Uint8Array([127, 0, 0, 1, 0x1a, 0xe1, 10, 0, 0, 2, 0, 80])),
+        ).toEqual([
             { host: '127.0.0.1', port: 6881 },
             { host: '10.0.0.2', port: 80 },
         ]);
@@ -32,11 +34,26 @@ describe('compact DHT peers', () => {
     });
 
     it('rejects malformed compact IPv4 peer info', () => {
-        expectDhtError(() => decodeCompactPeer(new Uint8Array(5)), DHTErrorCode.INVALID_COMPACT_PEER);
-        expectDhtError(() => decodeCompactPeers(new Uint8Array(7)), DHTErrorCode.INVALID_COMPACT_PEER);
-        expectDhtError(() => encodeCompactPeer({ host: '127.0.0', port: 6881 }), DHTErrorCode.INVALID_IPV4_HOST);
-        expectDhtError(() => encodeCompactPeer({ host: '127.0.0.256', port: 6881 }), DHTErrorCode.INVALID_IPV4_HOST);
-        expectDhtError(() => encodeCompactPeer({ host: '127.0.0.1', port: 65536 }), DHTErrorCode.INVALID_PORT);
+        expectDhtError(
+            () => decodeCompactPeer(new Uint8Array(5)),
+            DHTErrorCode.INVALID_COMPACT_PEER,
+        );
+        expectDhtError(
+            () => decodeCompactPeers(new Uint8Array(7)),
+            DHTErrorCode.INVALID_COMPACT_PEER,
+        );
+        expectDhtError(
+            () => encodeCompactPeer({ host: '127.0.0', port: 6881 }),
+            DHTErrorCode.INVALID_IPV4_HOST,
+        );
+        expectDhtError(
+            () => encodeCompactPeer({ host: '127.0.0.256', port: 6881 }),
+            DHTErrorCode.INVALID_IPV4_HOST,
+        );
+        expectDhtError(
+            () => encodeCompactPeer({ host: '127.0.0.1', port: 65536 }),
+            DHTErrorCode.INVALID_PORT,
+        );
     });
 });
 
@@ -82,8 +99,14 @@ describe('compact DHT nodes', () => {
     });
 
     it('rejects malformed compact node info', () => {
-        expectDhtError(() => decodeCompactNode(new Uint8Array(25)), DHTErrorCode.INVALID_COMPACT_NODE);
-        expectDhtError(() => decodeCompactNodes(new Uint8Array(27)), DHTErrorCode.INVALID_COMPACT_NODE);
+        expectDhtError(
+            () => decodeCompactNode(new Uint8Array(25)),
+            DHTErrorCode.INVALID_COMPACT_NODE,
+        );
+        expectDhtError(
+            () => decodeCompactNodes(new Uint8Array(27)),
+            DHTErrorCode.INVALID_COMPACT_NODE,
+        );
         expectDhtError(
             () => encodeCompactNode({ id: new Uint8Array(19), host: '127.0.0.1', port: 6881 }),
             DHTErrorCode.INVALID_DHT_ID,

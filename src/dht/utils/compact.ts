@@ -87,7 +87,10 @@ export const decodeCompactNodes = (bytes: Uint8Array): DhtNode[] => {
 
 export const encodeCompactNode = (node: DhtNode): Uint8Array => {
     if (!isDhtId(node.id)) {
-        throw new DHTError(DHTErrorCode.INVALID_DHT_ID, `DHT node id must be exactly ${DHT_ID_LENGTH} bytes`);
+        throw new DHTError(
+            DHTErrorCode.INVALID_DHT_ID,
+            `DHT node id must be exactly ${DHT_ID_LENGTH} bytes`,
+        );
     }
 
     const bytes = new Uint8Array(COMPACT_IPV4_NODE_LENGTH);

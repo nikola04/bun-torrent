@@ -26,10 +26,12 @@ describe('isDhtId', () => {
 
 describe('xorDistance', () => {
     it('returns the xor distance between two byte arrays', () => {
-        expect([...xorDistance(new Uint8Array([0b10101010, 0b11110000]), new Uint8Array([0b11001100, 0b00001111]))]).toEqual([
-            0b01100110,
-            0b11111111,
-        ]);
+        expect([
+            ...xorDistance(
+                new Uint8Array([0b10101010, 0b11110000]),
+                new Uint8Array([0b11001100, 0b00001111]),
+            ),
+        ]).toEqual([0b01100110, 0b11111111]);
     });
 
     it('rejects byte arrays with different lengths', () => {

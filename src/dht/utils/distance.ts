@@ -12,13 +12,20 @@ export const isDhtId = (value: Uint8Array): boolean => value.byteLength === DHT_
 
 export const xorDistance = (a: Uint8Array, b: Uint8Array): Uint8Array => {
     if (a.byteLength !== b.byteLength) {
-        throw new DHTError(DHTErrorCode.DISTANCE_INVALID_LENGTHS, 'Lengths of bytes to compare are not same');
+        throw new DHTError(
+            DHTErrorCode.DISTANCE_INVALID_LENGTHS,
+            'Lengths of bytes to compare are not same',
+        );
     }
 
     return a.map((byte, i) => byte ^ b[i]!);
 };
 
-export const compareDistance = (leftId: Uint8Array, rightId: Uint8Array, target: Uint8Array): number => {
+export const compareDistance = (
+    leftId: Uint8Array,
+    rightId: Uint8Array,
+    target: Uint8Array,
+): number => {
     const left = xorDistance(leftId, target);
     const right = xorDistance(rightId, target);
 
