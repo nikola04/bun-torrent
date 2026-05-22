@@ -62,3 +62,5 @@ export type KrpcError = {
     code: number;
     message: string;
 };
+
+export type KrpcMessage = KrpcQuery | KrpcResponse | KrpcError;
