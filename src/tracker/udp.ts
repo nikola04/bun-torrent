@@ -3,6 +3,7 @@ import { lookup } from 'dns/promises';
 import { type AnnounceOptions, type PeerInfo } from './types';
 import { TrackerError, TrackerErrorCode } from './tracker.error';
 import { defaults } from '../configs/defaults';
+import { createUdpSocket } from '../utils/UdpSocket';
 
 export const announceUdp = async (
     tracker: string,
@@ -48,56 +49,51 @@ export const announceUdp = async (
         rejectFn(error);
     };
 
-    const socket = await Bun.udpSocket({
-        socket: {
-            data(socket, data) {
-                try {
-                    const bytes = new Uint8Array(data);
+    const socket = await createUdpSocket({
+        data(socket, data) {
+            try {
+                const bytes = new Uint8Array(data);
 
-                    if (phase === 'connect') {
-                        ({ connHigh, connLow } = parseConnectResponse(bytes, connectTxId));
+                if (phase === 'connect') {
+                    ({ connHigh, connLow } = parseConnectResponse(bytes, connectTxId));
 
-                        announceTxId = randomU32();
-                        phase = 'announce';
+                    announceTxId = randomU32();
+                    phase = 'announce';
 
-                        socket.send(
-                            buildAnnounceRequest(
-                                connHigh,
-                                connLow,
-                                announceTxId,
-                                meta,
-                                peerId,
-                                announcePort,
-                            ),
-                            trackerPort,
-                            host,
-                        );
+                    socket.send(
+                        buildAnnounceRequest(
+                            connHigh,
+                            connLow,
+                            announceTxId,
+                            meta,
+                            peerId,
+                            announcePort,
+                        ),
+                        trackerPort,
+                        host,
+                    );
 
-                        return;
-                    }
-
-                    const peers = parseAnnounceResponse(bytes, announceTxId);
-                    socket.close();
-                    if (peers.length === 0) {
-                        rejectOnce(
-                            new TrackerError(
-                                TrackerErrorCode.NO_PEERS,
-                                'Tracker returned no peers',
-                            ),
-                        );
-                        return;
-                    }
-                    resolveOnce(peers);
-                } catch (err) {
-                    socket.close();
-                    rejectOnce(err);
+                    return;
                 }
-            },
 
-            error(socket, err) {
+                const peers = parseAnnounceResponse(bytes, announceTxId);
+                socket.close();
+                if (peers.length === 0) {
+                    rejectOnce(
+                        new TrackerError(TrackerErrorCode.NO_PEERS, 'Tracker returned no peers'),
+                    );
+                    return;
+                }
+                resolveOnce(peers);
+            } catch (err) {
                 socket.close();
                 rejectOnce(err);
-            },
+            }
+        },
+
+        error(socket, err) {
+            socket.close();
+            rejectOnce(err);
         },
     });
 

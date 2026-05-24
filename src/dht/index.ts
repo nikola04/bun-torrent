@@ -1,4 +1,6 @@
 export { DHTError, DHTErrorCode } from './errors';
+export { DhtClient } from './DhtClient';
+export type { DhtClientOptions, DhtEndpoint } from './DhtClient';
 export {
     DEFAULT_DHT_K_BUCKET_SIZE,
     DHT_K_BUCKET_COUNT,
