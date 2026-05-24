@@ -4,7 +4,7 @@ import { decodeBencode, type BValue } from '../../../torrent';
 import { sha1 } from '../../../utils/sha1';
 import { openExtendedConnection, type OpenExtendedConnectionOptions } from '../connection';
 import { PeerExtendedError, PeerExtendedErrorCode } from '../errors';
-import { MetadataAssembler } from './assembler';
+import { MetadataAssembler } from './MetadataAssembler';
 import { encodeMetadataRequest, parseMetadataData } from './messages';
 
 export type FetchMetadataFromPeerOptions = {

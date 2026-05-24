@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { createPeerPieceAvailability, PeerPieceAvailability } from './availability';
+import { createPeerPieceAvailability, PeerPieceAvailability } from './PeerPieceAvailability';
 
 describe('PeerPieceAvailability', () => {
     test('starts with no pieces when no bitfield is provided', () => {

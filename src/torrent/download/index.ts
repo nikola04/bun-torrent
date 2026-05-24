@@ -1,9 +1,9 @@
-export { DownloadManager } from './manager';
+export { DownloadManager } from './DownloadManager';
 export type {
     DownloadManagerOptions,
     DownloadProgress,
     DownloadProgressEventMode,
     DownloadProgressListener,
-} from './manager';
+} from './DownloadManager';
 export { PeerScorer } from './PeerScorer';
 export type { PeerDownloadStats } from './PeerScorer';

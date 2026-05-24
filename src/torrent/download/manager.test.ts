@@ -5,7 +5,7 @@ import type { PeerPool } from '../../peer/pool';
 import type { PeerSession } from '../../peer/session';
 import { createPiecePlanner, type PieceAvailability, type PieceCompletion } from '../pieces';
 import type { TorrentMetadata } from '../types';
-import { DownloadManager, type DownloadManagerOptions, type DownloadProgress } from './manager';
+import { DownloadManager, type DownloadManagerOptions, type DownloadProgress } from './DownloadManager';
 
 const makeMetadata = ({
     length = 4,

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { encodeHandshake } from '../handshake';
 import { decodePeerMessage, encodePeerMessage } from '../messages';
-import { PeerPieceAvailability } from '../availability';
+import { PeerPieceAvailability } from '../PeerPieceAvailability';
 import { BunTorrentError } from '../../utils/errors';
 import { concatBytes } from '../../utils/buffers';
 import { PeerSession, PeerSessionError, PeerSessionErrorCode } from '.';

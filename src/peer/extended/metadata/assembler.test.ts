@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { PeerExtendedError, PeerExtendedErrorCode } from '../errors';
-import { MetadataAssembler, METADATA_PIECE_LENGTH } from './assembler';
+import { MetadataAssembler, METADATA_PIECE_LENGTH } from './MetadataAssembler';
 
 describe('MetadataAssembler', () => {
     test('tracks missing pieces and assembles metadata bytes', () => {
