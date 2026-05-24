@@ -8,7 +8,12 @@ export type { DhtRoutingTableOptions } from './RoutingTable';
 export {
     decodeKrpcMessage,
     encodeKrpcMessage,
+    KRPC_TRANSACTION_ID_LENGTH,
+    KRPC_TRANSACTION_ID_SPACE,
+    KrpcTransactionIdGenerator,
     KrpcMessageType,
     KrpcQueryType,
+    krpcTransactionKey,
 } from './krpc';
+export type { KrpcTransactionIdGeneratorOptions } from './krpc';
 export type { KrpcError, KrpcMessage, KrpcQuery, KrpcResponse, KrpcTransactionId } from './krpc';
