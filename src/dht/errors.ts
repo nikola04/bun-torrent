@@ -1,6 +1,7 @@
 import { BunTorrentError } from '../utils/errors';
 
 export enum DHTErrorCode {
+    DHT_BOOTSTRAP_FAILED = 'DHT_BOOTSTRAP_FAILED',
     DHT_CLIENT_CLOSED = 'DHT_CLIENT_CLOSED',
     DHT_QUERY_FAILED = 'DHT_QUERY_FAILED',
     DHT_QUERY_TIMEOUT = 'DHT_QUERY_TIMEOUT',

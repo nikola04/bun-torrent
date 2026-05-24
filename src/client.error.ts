@@ -1,6 +1,7 @@
 import { BunTorrentError } from './utils/errors';
 
 export enum ClientErrorCode {
+    CLOSED = 'CLIENT_CLOSED',
     INVALID_FILE_SELECTION = 'CLIENT_INVALID_FILE_SELECTION',
     UNSUPPORTED_TORRENT_FILE_INPUT = 'CLIENT_UNSUPPORTED_TORRENT_FILE_INPUT',
 }

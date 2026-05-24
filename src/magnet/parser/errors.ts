@@ -13,6 +13,7 @@ export class MagnetParseError extends BunTorrentError {
         code: MagnetParseErrorCode,
         message: string,
         public readonly field?: string,
+        public override readonly cause?: unknown,
     ) {
         super(message, code);
     }

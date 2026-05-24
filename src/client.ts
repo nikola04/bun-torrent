@@ -11,6 +11,9 @@ import { getUnknownSelectedFiles, normalizeTorrentFileSelection } from './torren
 import { defaults } from './configs/defaults';
 import { BunTorrentError } from './utils/errors';
 import { parseMagnet } from './magnet';
+import { DhtClient } from './dht';
+import { createDhtNodeId } from './dht/utils/distance';
+import type { PeerInfo } from './tracker/types';
 
 export enum DownloadState {
     PARSING = 'parsing',
@@ -19,7 +22,13 @@ export enum DownloadState {
     DOWNLOADING = 'downloading',
 }
 
+export type ClientDht = {
+    lookupPeers(infoHash: Uint8Array): Promise<PeerInfo[]>;
+    close?(): void;
+};
+
 export type ClientConfig = {
+    dht?: ClientDht | false;
     files?: TorrentFileSelection;
     maxInFlightRequestsPerPeer?: number;
     maxConnecting?: number;
@@ -50,12 +59,22 @@ type DownloadInput = { meta: TorrentMetadata } | InspectInput;
 
 export class Client {
     private readonly peerId: Uint8Array;
+    private readonly dhtNodeId: Uint8Array;
+    private readonly dht?: ClientDht;
+    private readonly torrents = new Set<Torrent>();
+    private closed = false;
 
     constructor(private readonly config: ClientConfig = {}) {
         this.peerId = createPeerId();
+        this.dhtNodeId = createDhtNodeId();
+        this.dht =
+            config.dht === false
+                ? undefined
+                : (config.dht ?? new DhtClient({ nodeId: this.dhtNodeId }));
     }
 
     public async download(input: DownloadInput, options: DownloadOptions = {}): Promise<Torrent> {
+        this.assertOpen();
         options.onChangeState?.(DownloadState.PARSING);
         const meta =
             input.meta ?? (await this.inspect(input, { timeout: options.trackerTimeoutMs }));
@@ -63,7 +82,7 @@ export class Client {
         assertValidFileSelection(meta, downloadConfig.files);
 
         options.onChangeState?.(DownloadState.TRACKING);
-        const peers = await this.trackPeers(meta, options, downloadConfig);
+        const peers = await this.discoverPeers(meta, options, downloadConfig);
 
         options.onChangeState?.(DownloadState.CONNECTING);
         const pool = await openPeerPool(peers, {
@@ -77,7 +96,7 @@ export class Client {
         });
 
         options.onChangeState?.(DownloadState.DOWNLOADING);
-        return new Torrent(
+        const torrent = new Torrent(
             meta,
             pool,
             new DownloadManager({
@@ -93,20 +112,57 @@ export class Client {
             normalizeTorrentFileSelection(downloadConfig.files),
             downloadConfig.seed,
         );
+
+        this.trackTorrent(torrent);
+        return torrent;
     }
 
     public async inspect(
         input: InspectInput,
         options?: { timeout?: number },
     ): Promise<TorrentMetadata> {
+        this.assertOpen();
         if ('torrentFile' in input && input.torrentFile !== undefined) {
             const bytes = await readTorrentFile(input.torrentFile);
             return parseTorrent(bytes);
         }
         if ('magnet' in input && input.magnet !== undefined && input.magnet !== null) {
-            return parseMagnet(input.magnet, this.peerId, options);
+            return parseMagnet(input.magnet, this.peerId, { ...options, dht: this.dht });
         }
         throw new BunTorrentError('No input provided', 'NO_INPUT');
+    }
+
+    public close(): void {
+        if (this.closed) return;
+
+        this.closed = true;
+        for (const torrent of this.torrents) torrent.close();
+        this.torrents.clear();
+        this.dht?.close?.();
+    }
+
+    private async discoverPeers(
+        meta: TorrentMetadata,
+        options: DownloadOptions,
+        config: ResolvedDownloadConfig,
+    ): Promise<PeerInfo[]> {
+        const peers = new Map<string, PeerInfo>();
+
+        for (const peer of await this.trackPeers(meta, options, config)) {
+            peers.set(peerKey(peer), peer);
+        }
+
+        if (peers.size > 0 || !this.dht) return [...peers.values()];
+
+        try {
+            for (const peer of await this.dht.lookupPeers(meta.infoHash)) {
+                peers.set(peerKey(peer), peer);
+            }
+        } catch {
+            return [...peers.values()];
+        }
+
+        return [...peers.values()];
     }
 
     private async trackPeers(
@@ -125,6 +181,21 @@ export class Client {
             if (isNonFatalTrackerError(error)) return [];
             throw error;
         }
+    }
+
+    private trackTorrent(torrent: Torrent): void {
+        this.torrents.add(torrent);
+        torrent.on('close', () => this.torrents.delete(torrent));
+        void torrent.done.then(
+            () => this.torrents.delete(torrent),
+            () => this.torrents.delete(torrent),
+        );
+    }
+
+    private assertOpen(): void {
+        if (!this.closed) return;
+
+        throw new ClientError(ClientErrorCode.CLOSED, 'Torrent client is closed');
     }
 }
 
@@ -145,15 +216,15 @@ export type DownloadOptions = {
     trackerTimeoutMs?: number;
 };
 
-type ResolvedDownloadConfig = Required<ClientConfig>;
-
-type PeerInfo = Awaited<ReturnType<typeof trackPeers>>[number];
+type ResolvedDownloadConfig = Required<Omit<ClientConfig, 'dht'>>;
 
 const isNonFatalTrackerError = (error: unknown): error is TrackerError =>
     error instanceof TrackerError &&
     (error.code === TrackerErrorCode.ANNOUNCE_FAILED ||
         error.code === TrackerErrorCode.NO_PEERS ||
         error.code === TrackerErrorCode.NO_SUPPORTED_TRACKERS);
+
+const peerKey = (peer: PeerInfo): string => `${peer.ip}:${peer.port}`;
 
 const resolveDownloadConfig = (
     config: ClientConfig,

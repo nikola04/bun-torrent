@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { concatBytes } from '../../utils/buffers';
 import { encodeHandshake } from '../handshake';
 import { openExtendedConnection } from './connection';
+import { PeerExtendedErrorCode } from './errors';
 import { encodeExtMessage, encodeExtendedHandshake } from './protocol';
 
 const infoHash = new Uint8Array(20).fill(1);
@@ -52,11 +53,34 @@ describe('openExtendedConnection', () => {
 
         connection.close();
     });
+
+    test('destroys the socket when opening is aborted', async () => {
+        const socket = new FakeSocket();
+        const controller = new AbortController();
+
+        const connectionPromise = openExtendedConnection({
+            peer: { ip: '127.0.0.1', port: 6881 },
+            infoHash,
+            peerId,
+            timeoutMs: 1_000,
+            signal: controller.signal,
+            localExtensions: { ut_metadata: 1 },
+            createSocket: () => socket,
+        });
+
+        controller.abort();
+
+        await expect(connectionPromise).rejects.toMatchObject({
+            code: PeerExtendedErrorCode.ABORTED,
+        });
+        expect(socket.destroyed).toBe(true);
+    });
 });
 
 class FakeSocket extends EventEmitter {
     public writes: Uint8Array[] = [];
     public onWrite?: (data: Uint8Array) => void;
+    public destroyed = false;
 
     public write(data: Uint8Array): boolean {
         this.writes.push(data);
@@ -65,6 +89,7 @@ class FakeSocket extends EventEmitter {
     }
 
     public destroy(): void {
+        this.destroyed = true;
         this.emit('close');
     }
 

@@ -29,6 +29,7 @@ export type OpenExtendedConnectionOptions = {
     infoHash: Uint8Array;
     peerId: Uint8Array;
     timeoutMs?: number;
+    signal?: AbortSignal;
     localExtensions: Record<string, number>;
     createSocket?: (peer: PeerInfo) => ExtendedSocket;
 };
@@ -43,6 +44,7 @@ type ExtendedSocket = {
     on(event: 'close', listener: () => void): void;
     write(data: Uint8Array): unknown;
     destroy(): void;
+    unref?(): void;
 };
 
 export const openExtendedConnection = async ({
@@ -50,10 +52,16 @@ export const openExtendedConnection = async ({
     infoHash,
     peerId,
     timeoutMs = defaults.peers.connectTimeoutMs,
+    signal,
     localExtensions,
     createSocket = ({ ip, port }) => createConnection({ host: ip, port }),
 }: OpenExtendedConnectionOptions): Promise<ExtendedConnection> => {
     return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            reject(createAbortedError());
+            return;
+        }
+
         const socket = createSocket(peer);
 
         let settled = false;
@@ -73,6 +81,12 @@ export const openExtendedConnection = async ({
                 ),
             );
         }, timeoutMs);
+        timeout.unref();
+
+        const cleanup = (): void => {
+            clearTimeout(timeout);
+            signal?.removeEventListener('abort', abort);
+        };
 
         const connection: ExtendedConnection = {
             get remoteExtensions() {
@@ -97,7 +111,8 @@ export const openExtendedConnection = async ({
             },
             close() {
                 closed = true;
-                clearTimeout(timeout);
+                cleanup();
+                socket.unref?.();
                 socket.destroy();
             },
         };
@@ -106,7 +121,7 @@ export const openExtendedConnection = async ({
             if (settled) return;
 
             settled = true;
-            clearTimeout(timeout);
+            cleanup();
             resolve(connection);
         };
 
@@ -115,10 +130,17 @@ export const openExtendedConnection = async ({
 
             settled = true;
             closed = true;
-            clearTimeout(timeout);
+            cleanup();
+            socket.unref?.();
             socket.destroy();
             reject(error);
         };
+
+        const abort = (): void => {
+            rejectOnce(createAbortedError());
+        };
+
+        signal?.addEventListener('abort', abort, { once: true });
 
         socket.on('connect', () => {
             const reserved = new Uint8Array(8);
@@ -190,6 +212,9 @@ export const openExtendedConnection = async ({
         };
     });
 };
+
+const createAbortedError = (): PeerExtendedError =>
+    new PeerExtendedError(PeerExtendedErrorCode.ABORTED, 'Peer extended connection aborted');
 
 const toBytes = (data: string | Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBufferLike> =>
     typeof data === 'string' ? new TextEncoder().encode(data) : data;

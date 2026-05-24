@@ -56,4 +56,23 @@ describe('parseMagnet', () => {
             code: MagnetParseErrorCode.NOT_IMPLEMENTED,
         });
     });
+
+    test('uses DHT peer discovery for trackerless magnets when provided', async () => {
+        const calls: string[] = [];
+
+        await expect(
+            parseMagnet(`magnet:?xt=urn:btih:${hexInfoHash}`, new Uint8Array(20), {
+                dht: {
+                    lookupPeers: async (infoHash) => {
+                        calls.push(bytesToHex(infoHash));
+                        return [];
+                    },
+                },
+            }),
+        ).rejects.toMatchObject({
+            code: MagnetParseErrorCode.NO_METADATA,
+        });
+
+        expect(calls).toEqual([hexInfoHash]);
+    });
 });

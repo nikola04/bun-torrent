@@ -1,6 +1,8 @@
 export type UdpSocket = {
     send(data: Uint8Array, port: number, host: string): boolean | void | Promise<boolean | void>;
     close(): void;
+    ref?(): void;
+    unref?(): void;
 };
 
 export type UdpSocketHandlers = {
@@ -11,16 +13,27 @@ export type UdpSocketHandlers = {
 export type CreateUdpSocket = (handlers: UdpSocketHandlers) => UdpSocket | Promise<UdpSocket>;
 
 export const createUdpSocket = async (handlers: UdpSocketHandlers): Promise<UdpSocket> => {
+    let wrapped!: UdpSocket;
     const socket = await Bun.udpSocket({
         socket: {
-            data(socket, data) {
-                handlers.data(socket, new Uint8Array(data));
+            data(_socket, data) {
+                handlers.data(wrapped, new Uint8Array(data));
             },
-            error(socket, error) {
-                handlers.error(socket, error);
+            error(_socket, error) {
+                handlers.error(wrapped, error);
             },
         },
     });
 
-    return socket;
+    wrapped = {
+        send: socket.send.bind(socket),
+        close() {
+            socket.close();
+            socket.unref();
+        },
+        ref: socket.ref.bind(socket),
+        unref: socket.unref.bind(socket),
+    };
+
+    return wrapped;
 };

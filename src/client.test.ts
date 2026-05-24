@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { encodeBencode, toBValue } from './torrent/index';
 import { Client } from './client';
 import { ClientError, ClientErrorCode } from './client.error';
+import { TorrentState } from './torrent/session';
 
 const makeTorrent = ({ announce }: { announce?: string } = {}): Uint8Array => {
     const root: {
@@ -83,7 +84,7 @@ describe('Client.inspect', () => {
 
 describe('Client.download', () => {
     test('uses configurable peer connection targets', async () => {
-        const client = new Client({ targetConnections: 40 });
+        const client = new Client({ targetConnections: 40, dht: false });
 
         const torrent = await client.download(
             { torrentFile: makeTorrent() },
@@ -95,7 +96,7 @@ describe('Client.download', () => {
     });
 
     test('uses default peer connection targets when none are configured', async () => {
-        const client = new Client();
+        const client = new Client({ dht: false });
 
         const torrent = await client.download({ torrentFile: makeTorrent() });
 
@@ -105,7 +106,7 @@ describe('Client.download', () => {
 
     test('returns an empty torrent instead of rejecting when no trackers are available', async () => {
         const states: string[] = [];
-        const client = new Client();
+        const client = new Client({ dht: false });
 
         const torrent = await client.download(
             { torrentFile: makeTorrent() },
@@ -121,6 +122,23 @@ describe('Client.download', () => {
         await torrent.done;
     });
 
+    test('falls back to DHT peer discovery when trackers are unavailable', async () => {
+        let lookups = 0;
+        const client = new Client({
+            dht: {
+                async lookupPeers() {
+                    lookups += 1;
+                    return [];
+                },
+            },
+        });
+
+        const torrent = await client.download({ torrentFile: makeTorrent() });
+
+        expect(lookups).toBe(1);
+        await torrent.done;
+    });
+
     test('rejects unknown selected files', async () => {
         const client = new Client();
 
@@ -128,6 +146,30 @@ describe('Client.download', () => {
             client.download({ torrentFile: makeTorrent() }, { files: ['missing.bin'] }),
         ).rejects.toMatchObject({
             code: ClientErrorCode.INVALID_FILE_SELECTION,
+        });
+    });
+});
+
+describe('Client.close', () => {
+    test('closes active torrents', async () => {
+        const client = new Client({ dht: false });
+        const torrent = await client.download({ torrentFile: makeTorrent() });
+
+        client.close();
+
+        expect(torrent.state).toBe(TorrentState.CLOSED);
+        await torrent.done;
+    });
+
+    test('rejects new operations after close', async () => {
+        const client = new Client();
+        client.close();
+
+        await expect(client.inspect({ torrentFile: makeTorrent() })).rejects.toMatchObject({
+            code: ClientErrorCode.CLOSED,
+        });
+        await expect(client.download({ torrentFile: makeTorrent() })).rejects.toMatchObject({
+            code: ClientErrorCode.CLOSED,
         });
     });
 });

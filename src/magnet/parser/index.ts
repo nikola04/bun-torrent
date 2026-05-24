@@ -1,65 +1,127 @@
 import { defaults } from '../../configs/defaults';
-import { fetchMetadataFromPeer } from '../../peer/extended';
+import { fetchMetadataFromPeer as defaultFetchMetadataFromPeer } from '../../peer/extended';
 import { type TorrentMetadata } from '../../torrent';
 import { trackPeers } from '../../tracker';
+import type { PeerInfo } from '../../tracker/types';
 import { decodeBase32 } from '../base32';
 import { MagnetParseError, MagnetParseErrorCode } from './errors';
 import { parseInfoDict } from './meta';
 import type { ParsedMagnetURI } from './types';
 
+export type MagnetPeerDiscovery = {
+    lookupPeers(infoHash: Uint8Array): Promise<PeerInfo[]>;
+};
+
+export type ParseMagnetOptions = {
+    timeout?: number;
+    dht?: MagnetPeerDiscovery;
+    fetchMetadataFromPeer?: typeof defaultFetchMetadataFromPeer;
+};
+
 export const parseMagnet = async (
     magnet: string,
     peerId: Uint8Array,
-    options?: { timeout?: number },
+    options: ParseMagnetOptions = {},
 ): Promise<TorrentMetadata> => {
     const data = parseMagnetURI(magnet);
 
-    if (data.trackers.length <= 0) {
+    if (data.trackers.length <= 0 && !options.dht) {
         throw new MagnetParseError(
             MagnetParseErrorCode.NOT_IMPLEMENTED,
             'No trackers found, DHT is not yet implemented',
         );
     }
 
-    const peers = await trackPeers({
-        meta: {
-            infoHash: data.infoHash,
-            length: 0,
-            announce: undefined,
-            announceList: data.trackers.map((t) => [t]),
-        },
-        peerId: peerId,
-        timeoutMs: defaults.magnet.trackerTimeoutMs,
-    });
-
-    let raw;
+    let peers: PeerInfo[];
     try {
-        raw = await Promise.any(
-            peers.map((p) =>
-                fetchMetadataFromPeer(p, data.infoHash, peerId, {
-                    timeoutMs: options?.timeout ?? defaults.magnet.peerTimeoutMs,
-                }),
-            ),
-        );
-    } catch {
+        peers = await discoverMagnetPeers(data, peerId, options);
+    } catch (error) {
         throw new MagnetParseError(
             MagnetParseErrorCode.NO_METADATA,
-            'Failed to fetch metadata from any peer',
+            'Failed to discover peers for magnet metadata',
+            undefined,
+            error,
+        );
+    }
+
+    if (peers.length === 0) {
+        throw new MagnetParseError(
+            MagnetParseErrorCode.NO_METADATA,
+            'No peers found for magnet metadata',
+        );
+    }
+
+    let result: { raw: unknown; peer: PeerInfo };
+    const controller = new AbortController();
+    const timeoutMs = options?.timeout ?? defaults.magnet.peerTimeoutMs;
+    const fetchMetadataFromPeer = options.fetchMetadataFromPeer ?? defaultFetchMetadataFromPeer;
+    try {
+        result = await Promise.any(
+            peers.map((p) =>
+                fetchMetadataFromPeer(p, data.infoHash, peerId, {
+                    timeoutMs,
+                    signal: controller.signal,
+                }).then((raw) => ({ raw, peer: p })),
+            ),
+        );
+        controller.abort();
+    } catch (error) {
+        controller.abort();
+        throw new MagnetParseError(
+            MagnetParseErrorCode.NO_METADATA,
+            `Failed to fetch metadata from ${peers.length} peer(s)`,
+            undefined,
+            error,
         );
     }
 
     try {
         return parseInfoDict(
-            raw,
+            result.raw,
             data.infoHash,
             undefined,
             data.trackers.map((t) => [t]),
         );
-    } catch {
+    } catch (error) {
         throw new MagnetParseError(
             MagnetParseErrorCode.PARSING_FAILED,
             'Failed to parse metadata from peer',
+            undefined,
+            error,
         );
+    }
+};
+
+const discoverMagnetPeers = async (
+    data: ParsedMagnetURI,
+    peerId: Uint8Array,
+    options: ParseMagnetOptions,
+): Promise<PeerInfo[]> => {
+    const peers = data.trackers.length > 0 ? await discoverTrackerPeers(data, peerId, options) : [];
+    if (peers.length > 0) return peers;
+
+    return (await options.dht?.lookupPeers(data.infoHash)) ?? [];
+};
+
+const discoverTrackerPeers = async (
+    data: ParsedMagnetURI,
+    peerId: Uint8Array,
+    options: ParseMagnetOptions,
+): Promise<PeerInfo[]> => {
+    try {
+        return await trackPeers({
+            meta: {
+                infoHash: data.infoHash,
+                length: 0,
+                announce: undefined,
+                announceList: data.trackers.map((t) => [t]),
+            },
+            peerId,
+            timeoutMs: defaults.magnet.trackerTimeoutMs,
+        });
+    } catch (error) {
+        if (options.dht) return [];
+        throw error;
     }
 };
 

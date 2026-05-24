@@ -22,6 +22,17 @@ export const defaults = {
         announcePort: 6881,
         timeoutMs: 5_000,
     },
+    dht: {
+        bootstrapNodes: [
+            { host: 'router.bittorrent.com', port: 6881 },
+            { host: 'router.utorrent.com', port: 6881 },
+            { host: 'dht.transmissionbt.com', port: 6881 },
+        ],
+        lookupConcurrency: 8,
+        maxLookupRounds: 8,
+        peerCacheTtlMs: 5 * 60_000,
+        queryTimeoutMs: 5_000,
+    },
     magnet: {
         trackerTimeoutMs: 3_000,
         peerTimeoutMs: 5_000,

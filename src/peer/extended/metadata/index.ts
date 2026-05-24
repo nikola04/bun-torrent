@@ -9,6 +9,7 @@ import { encodeMetadataRequest, parseMetadataData } from './messages';
 
 export type FetchMetadataFromPeerOptions = {
     timeoutMs?: number;
+    signal?: AbortSignal;
     createSocket?: OpenExtendedConnectionOptions['createSocket'];
 };
 
@@ -27,6 +28,7 @@ export const fetchMetadataFromPeer = async (
         infoHash,
         peerId,
         timeoutMs,
+        signal: options.signal,
         localExtensions: { [UT_METADATA_EXTENSION]: LOCAL_UT_METADATA_ID },
         createSocket: options.createSocket,
     });
@@ -52,15 +54,21 @@ export const fetchMetadataFromPeer = async (
                     'Peer metadata download timed out',
                 ),
             );
-        }, options.timeoutMs);
+        }, timeoutMs);
+        timeout.unref();
+
+        const cleanup = (): void => {
+            clearTimeout(timeout);
+            options.signal?.removeEventListener('abort', abort);
+            offMessage();
+            connection.close();
+        };
 
         const resolveOnce = (value: BValue): void => {
             if (settled) return;
 
             settled = true;
-            clearTimeout(timeout);
-            offMessage();
-            connection.close();
+            cleanup();
             resolve(value);
         };
 
@@ -68,11 +76,25 @@ export const fetchMetadataFromPeer = async (
             if (settled) return;
 
             settled = true;
-            clearTimeout(timeout);
-            offMessage();
-            connection.close();
+            cleanup();
             reject(error);
         };
+
+        const abort = (): void => {
+            rejectOnce(
+                new PeerExtendedError(
+                    PeerExtendedErrorCode.ABORTED,
+                    'Peer metadata download aborted',
+                ),
+            );
+        };
+
+        if (options.signal?.aborted) {
+            abort();
+            return;
+        }
+
+        options.signal?.addEventListener('abort', abort, { once: true });
 
         offMessage = connection.onMessage((message) => {
             try {
