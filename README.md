@@ -2,7 +2,7 @@
 
 A minimal Bun-native BitTorrent download-only client written in TypeScript.
 
-`bun-torrent` can parse `.torrent` files and tracker-backed magnet links, announce to HTTP and UDP trackers, connect to peers, download pieces, validate piece hashes, and write the downloaded files to disk. The public API is intentionally small: create a `Client`, inspect a torrent when you need metadata, then call `download()`.
+`bun-torrent` can parse `.torrent` files and magnet links, announce to HTTP and UDP trackers, discover peers through the BitTorrent DHT, connect to peers, download pieces, validate piece hashes, and write the downloaded files to disk. The public API is intentionally small: create a `Client`, inspect a torrent when you need metadata, then call `download()`.
 
 It has no runtime dependencies.
 
@@ -57,6 +57,17 @@ await torrent.done;
 
 `download()` returns a `Torrent` instance and starts the download immediately.
 
+## Runnable Example Files
+
+Runnable example files are available in `examples/`:
+
+```bash
+bun examples/download-torrent.ts ./example.torrent ./downloads
+bun examples/magnet-dht.ts "magnet:?xt=urn:btih:..." ./downloads
+```
+
+The magnet example works with tracker-backed and trackerless magnets. It uses the default in-memory DHT node and closes the client before exiting.
+
 ## Client Setup
 
 ```ts
@@ -78,6 +89,7 @@ const client = new Client({
 
 Client options:
 
+- `dht`: optional DHT peer discovery implementation, or `false` to disable DHT. By default, the client creates an in-memory DHT node.
 - `outputDirectory`: directory where downloaded files are written. Defaults to `process.cwd()`.
 - `files`: optional default file selection for downloads.
 - `targetConnections`: preferred number of connected peers. Defaults to `20`.
@@ -109,9 +121,11 @@ console.log(metadata.files);
 
 Torrent file input can be a file path, `Uint8Array`, or `ArrayBuffer`.
 
+Call `client.close()` when the client should stop accepting work and close active torrents and its DHT socket.
+
 ## Magnet Links
 
-Magnet links are supported when they include at least one HTTP, HTTPS, or UDP tracker through the `tr` parameter. Metadata is fetched from peers with the `ut_metadata` extension before the normal download flow starts.
+Magnet links are supported with or without trackers. If `tr` parameters are present, the client asks those trackers first. If no tracker returns peers, or the magnet is trackerless, the client falls back to DHT peer discovery. Metadata is fetched from peers with the `ut_metadata` extension before the normal download flow starts.
 
 ```ts
 const magnet =
@@ -134,13 +148,42 @@ const torrent = await client.download(
 await torrent.done;
 ```
 
+Trackerless magnets use the same API. Keep the same `Client` instance if you inspect first and download later, because the default DHT node keeps discovered peers in memory for the current process.
+
+```ts
+import { Client } from 'bun-torrent';
+
+const client = new Client({
+    outputDirectory: './downloads',
+});
+
+const magnet = 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567';
+
+try {
+    const metadata = await client.inspect({ magnet });
+
+    console.log(metadata.name);
+    console.log(metadata.files);
+
+    const torrent = await client.download({ meta: metadata });
+
+    torrent.on('progress', (progress) => {
+        console.log(`${(progress.percent * 100).toFixed(2)}%`, progress.speed);
+    });
+
+    await torrent.done;
+} finally {
+    client.close();
+}
+```
+
 Supported magnet fields:
 
 - `xt=urn:btih:<infoHash>`: required. Hex-encoded 40-character info hashes and base32 32-character info hashes are supported.
 - `dn`: optional display name.
-- `tr`: optional tracker URL. Multiple `tr` parameters are supported.
+- `tr`: optional tracker URL. Multiple `tr` parameters are supported, but trackerless magnets can resolve through DHT.
 
-Trackerless magnets are not supported yet because DHT peer discovery is not implemented. A magnet without `tr` currently fails during inspection with a DHT-not-implemented error.
+The default DHT node is in-memory. It keeps a routing table and a short-lived peer cache for the current process, so a magnet `inspect()` can populate peers that a later `download({ meta })` call can reuse on the same `Client` instance. The DHT state is not persisted to disk.
 
 ## Download Options
 
@@ -181,7 +224,7 @@ Download options:
 - `speedSampleIntervalMs`: override speed sample interval.
 - `onChangeState`: receives client setup states: `parsing`, `tracking`, `connecting`, `downloading`.
 
-Tracker announce failures are treated as non-fatal. If no tracker responds, the client can still continue with an empty peer list instead of throwing during tracking.
+Tracker announce failures are treated as non-fatal. If trackers are missing or do not return peers, the client falls back to DHT when it is enabled. With DHT disabled, the client can still continue with an empty peer list instead of throwing during tracking when `minConnections` is `0`.
 
 ## Selecting Files
 
