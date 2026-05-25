@@ -59,9 +59,7 @@ const inspect = async (input?: string): Promise<void> => {
     const client = new Client();
 
     try {
-        const metadata = input
-            ? await inspectArgument(client, input)
-            : await inspectStdin(client);
+        const metadata = input ? await inspectArgument(client, input) : await inspectStdin(client);
 
         console.log(JSON.stringify(summarizeTorrent(metadata), null, 2));
     } finally {

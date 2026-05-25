@@ -13,19 +13,19 @@ export type UdpSocketHandlers = {
 export type CreateUdpSocket = (handlers: UdpSocketHandlers) => UdpSocket | Promise<UdpSocket>;
 
 export const createUdpSocket = async (handlers: UdpSocketHandlers): Promise<UdpSocket> => {
-    let wrapped!: UdpSocket;
+    const wrappedRef: { current?: UdpSocket } = {};
     const socket = await Bun.udpSocket({
         socket: {
             data(_socket, data) {
-                handlers.data(wrapped, new Uint8Array(data));
+                handlers.data(getWrappedSocket(wrappedRef), new Uint8Array(data));
             },
             error(_socket, error) {
-                handlers.error(wrapped, error);
+                handlers.error(getWrappedSocket(wrappedRef), error);
             },
         },
     });
 
-    wrapped = {
+    const wrapped: UdpSocket = {
         send: socket.send.bind(socket),
         close() {
             socket.close();
@@ -34,6 +34,15 @@ export const createUdpSocket = async (handlers: UdpSocketHandlers): Promise<UdpS
         ref: socket.ref.bind(socket),
         unref: socket.unref.bind(socket),
     };
+    wrappedRef.current = wrapped;
 
     return wrapped;
+};
+
+const getWrappedSocket = (wrappedRef: { current?: UdpSocket }): UdpSocket => {
+    if (!wrappedRef.current) {
+        throw new Error('UDP socket is not ready');
+    }
+
+    return wrappedRef.current;
 };

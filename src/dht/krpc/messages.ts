@@ -1,6 +1,18 @@
-import { decodeBencode, encodeBencode, toBValue, type BDict, type BValue } from '../../torrent/bencode';
+import {
+    decodeBencode,
+    encodeBencode,
+    toBValue,
+    type BDict,
+    type BValue,
+} from '../../torrent/bencode';
 import { DHTError, DHTErrorCode } from '../errors';
-import { type KrpcError, type KrpcMessage, KrpcMessageType, KrpcQueryType, type KrpcResponse } from './types';
+import {
+    type KrpcError,
+    type KrpcMessage,
+    KrpcMessageType,
+    KrpcQueryType,
+    type KrpcResponse,
+} from './types';
 
 const textDecoder = new TextDecoder();
 
@@ -63,11 +75,15 @@ const encodeKrpcQuery = (message: Extract<KrpcMessage, { type: 'query' }>): Uint
             );
     }
 
-    throw invalidKrpcMessage(`Unsupported KRPC query type: ${(message as { query: string }).query}`);
+    throw invalidKrpcMessage(
+        `Unsupported KRPC query type: ${(message as { query: string }).query}`,
+    );
 };
 
 const encodeKrpcResponse = (message: KrpcResponse): Uint8Array => {
-    const response: Record<string, number | string | Uint8Array | Uint8Array[]> = { id: message.id };
+    const response: Record<string, number | string | Uint8Array | Uint8Array[]> = {
+        id: message.id,
+    };
 
     if ('nodes' in message) response.nodes = message.nodes;
     if ('token' in message && message.token) response.token = message.token;
@@ -170,7 +186,8 @@ const getOptionalBytesList = (dict: BDict, field: string): Uint8Array[] | undefi
 };
 
 const expectDict = (value: BValue | undefined, field: string): BDict => {
-    if (!(value instanceof Map)) throw invalidKrpcMessage(`KRPC field ${field} must be a dictionary`);
+    if (!(value instanceof Map))
+        throw invalidKrpcMessage(`KRPC field ${field} must be a dictionary`);
     return value;
 };
 
@@ -180,7 +197,8 @@ const expectList = (value: BValue | undefined, field: string): BValue[] => {
 };
 
 const expectBytes = (value: BValue | undefined, field: string): Uint8Array => {
-    if (!(value instanceof Uint8Array)) throw invalidKrpcMessage(`KRPC field ${field} must be bytes`);
+    if (!(value instanceof Uint8Array))
+        throw invalidKrpcMessage(`KRPC field ${field} must be bytes`);
     return value;
 };
 

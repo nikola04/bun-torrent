@@ -94,7 +94,10 @@ export class DhtRoutingTable {
             return DHT_K_BUCKET_COUNT - leadingZeroDistanceBits - 1;
         }
 
-        throw new DHTError(DHTErrorCode.INVALID_DHT_ID, 'Cannot calculate bucket index for local node id');
+        throw new DHTError(
+            DHTErrorCode.INVALID_DHT_ID,
+            'Cannot calculate bucket index for local node id',
+        );
     }
 
     private assertNodeId(nodeId: Uint8Array): void {

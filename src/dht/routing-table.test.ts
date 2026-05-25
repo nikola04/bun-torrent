@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { DHTError, DHTErrorCode } from './errors';
-import {
-    DEFAULT_DHT_K_BUCKET_SIZE,
-    DHT_K_BUCKET_COUNT,
-    DhtRoutingTable,
-} from './routing-table';
+import { DEFAULT_DHT_K_BUCKET_SIZE, DHT_K_BUCKET_COUNT, DhtRoutingTable } from './routing-table';
 import type { DhtNode } from './utils/compact';
 
 describe('DhtRoutingTable', () => {

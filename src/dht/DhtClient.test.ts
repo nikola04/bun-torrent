@@ -265,7 +265,10 @@ describe('DhtClient', () => {
         });
 
         await bootstrap;
-        expect(client.routingTable.get(bootstrapNodeId)).toEqual({ id: bootstrapNodeId, ...endpoint });
+        expect(client.routingTable.get(bootstrapNodeId)).toEqual({
+            id: bootstrapNodeId,
+            ...endpoint,
+        });
         expect(client.routingTable.get(discoveredNode.id)).toEqual(discoveredNode);
     });
 
@@ -277,7 +280,10 @@ describe('DhtClient', () => {
             },
         });
 
-        await expectDhtReject(client.bootstrap([remoteEndpoint()]), DHTErrorCode.DHT_BOOTSTRAP_FAILED);
+        await expectDhtReject(
+            client.bootstrap([remoteEndpoint()]),
+            DHTErrorCode.DHT_BOOTSTRAP_FAILED,
+        );
     });
 
     it('continues lookup through closer nodes until peers are found', async () => {

@@ -134,7 +134,10 @@ describe('decodeKrpcMessage validation', () => {
 
     it('rejects malformed errors', () => {
         expectDhtError(
-            () => decodeKrpcMessage(encodeBencode(toBValue({ e: [201], t: bytes([1]), y: KrpcMessageType.Error }))),
+            () =>
+                decodeKrpcMessage(
+                    encodeBencode(toBValue({ e: [201], t: bytes([1]), y: KrpcMessageType.Error })),
+                ),
             DHTErrorCode.INVALID_KRPC_MESSAGE,
         );
     });
@@ -152,9 +155,19 @@ const normalize = (message: KrpcMessage): unknown => {
     switch (message.type) {
         case 'query':
             return 'target' in message
-                ? { ...message, transactionId: [...message.transactionId], id: [...message.id], target: [...message.target] }
+                ? {
+                      ...message,
+                      transactionId: [...message.transactionId],
+                      id: [...message.id],
+                      target: [...message.target],
+                  }
                 : 'infoHash' in message
-                  ? { ...message, transactionId: [...message.transactionId], id: [...message.id], infoHash: [...message.infoHash] }
+                  ? {
+                        ...message,
+                        transactionId: [...message.transactionId],
+                        id: [...message.id],
+                        infoHash: [...message.infoHash],
+                    }
                   : { ...message, transactionId: [...message.transactionId], id: [...message.id] };
         case 'response':
             return {
@@ -163,7 +176,9 @@ const normalize = (message: KrpcMessage): unknown => {
                 id: [...message.id],
                 ...('token' in message && message.token ? { token: [...message.token] } : {}),
                 ...('nodes' in message ? { nodes: [...message.nodes] } : {}),
-                ...('values' in message ? { values: message.values.map((value) => [...value]) } : {}),
+                ...('values' in message
+                    ? { values: message.values.map((value) => [...value]) }
+                    : {}),
             };
         case 'error':
             return { ...message, transactionId: [...message.transactionId] };

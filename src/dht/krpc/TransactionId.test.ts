@@ -39,9 +39,15 @@ describe('KrpcTransactionIdGenerator', () => {
     });
 
     it('normalizes invalid initial values', () => {
-        expect([...new KrpcTransactionIdGenerator({ initialValue: -1 }).create()]).toEqual([0xff, 0xff]);
-        expect([...new KrpcTransactionIdGenerator({ initialValue: 1.9 }).create()]).toEqual([0x00, 0x01]);
-        expect([...new KrpcTransactionIdGenerator({ initialValue: Number.NaN }).create()]).toEqual([0x00, 0x00]);
+        expect([...new KrpcTransactionIdGenerator({ initialValue: -1 }).create()]).toEqual([
+            0xff, 0xff,
+        ]);
+        expect([...new KrpcTransactionIdGenerator({ initialValue: 1.9 }).create()]).toEqual([
+            0x00, 0x01,
+        ]);
+        expect([...new KrpcTransactionIdGenerator({ initialValue: Number.NaN }).create()]).toEqual([
+            0x00, 0x00,
+        ]);
     });
 });
 

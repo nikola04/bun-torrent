@@ -140,7 +140,9 @@ export class DhtClient {
         target: Uint8Array = this.nodeId,
     ): Promise<void> {
         const previousSize = this.routingTable.size;
-        const responses = await Promise.allSettled(nodes.map((node) => this.findNode(node, target)));
+        const responses = await Promise.allSettled(
+            nodes.map((node) => this.findNode(node, target)),
+        );
         const errors: unknown[] = [];
 
         for (const response of responses) {
@@ -153,11 +155,7 @@ export class DhtClient {
         }
 
         if (this.routingTable.size === previousSize && errors.length === responses.length) {
-            throw new DHTError(
-                DHTErrorCode.DHT_BOOTSTRAP_FAILED,
-                'DHT bootstrap failed',
-                errors,
-            );
+            throw new DHTError(DHTErrorCode.DHT_BOOTSTRAP_FAILED, 'DHT bootstrap failed', errors);
         }
     }
 
@@ -316,9 +314,11 @@ export class DhtClient {
 
         if (message.type === 'error') {
             pending.reject(
-                new DHTError(DHTErrorCode.DHT_QUERY_FAILED, `DHT query failed: ${message.message}`, [
-                    message,
-                ]),
+                new DHTError(
+                    DHTErrorCode.DHT_QUERY_FAILED,
+                    `DHT query failed: ${message.message}`,
+                    [message],
+                ),
             );
             return;
         }
