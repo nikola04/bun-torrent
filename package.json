@@ -6,6 +6,9 @@
         "url": "git+https://github.com/nikola04/bun-torrent.git"
     },
     "module": "dist/index.js",
+    "bin": {
+        "bun-torrent": "./dist/app.js"
+    },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@types/bun": "latest",
