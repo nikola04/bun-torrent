@@ -1,15 +1,32 @@
 import type { DownloadProgress, DownloadProgressListener } from '../download';
 import type { TorrentFile, TorrentMetadata } from '../types';
 
+/**
+ * Snapshot of peer-pool activity for a torrent.
+ *
+ * Emitted as the payload of the `peer` event whenever the pool gains a new session.
+ */
 export type TorrentStats = {
+    /** Total peers known to the pool (from trackers and DHT). */
     peers: number;
+    /** Peers currently connected and past handshake. */
     connections: number;
+    /** Peers whose TCP connection or handshake is still in progress. */
     connecting: number;
+    /** Total connection attempts started since pool creation. */
     connectionAttempts: number;
+    /** Connection attempts that ended in error or timeout. */
     failedConnections: number;
+    /** Preferred upper bound on `connections` (from {@link ClientConfig.targetConnections}). */
     targetConnections: number;
 };
 
+/**
+ * Lifecycle states of a {@link Torrent}.
+ *
+ * Transitions: `downloading` → (`completed` | `failed` | `closed`). Terminal states
+ * never transition further.
+ */
 export enum TorrentState {
     DOWNLOADING = 'downloading',
     COMPLETED = 'completed',
@@ -17,8 +34,11 @@ export enum TorrentState {
     CLOSED = 'closed',
 }
 
+/** Payload of the `state` event. */
 export type TorrentStateChange = {
+    /** State the torrent left. */
     previous: TorrentState;
+    /** State the torrent entered. */
     state: TorrentState;
 };
 
@@ -37,8 +57,11 @@ export type TorrentEventListener<TEvent extends TorrentEventName> = (
     ...args: TorrentEventMap[TEvent]
 ) => void;
 
+/** File selection breakdown returned by {@link Torrent.files}. */
 export type TorrentFiles = {
+    /** Files that will be written to disk for this download. */
     included: TorrentFile[];
+    /** Files present in the torrent but skipped via the `files` option. */
     excluded: TorrentFile[];
 };
 
@@ -62,7 +85,30 @@ type TorrentDownloadManager = {
     close(): void;
 };
 
+/**
+ * A single in-progress (or completed) download.
+ *
+ * Returned by {@link Client.download}. Exposes the current state, progress, and stats
+ * as readable properties, and emits events through {@link Torrent.on}. The `done`
+ * promise resolves when the download completes successfully and rejects on failure.
+ *
+ * Peer sessions are closed automatically when the download completes (seeding is not
+ * implemented). Call {@link Torrent.close} to stop an active download early.
+ *
+ * @example
+ * const torrent = await client.download({ torrentFile: './example.torrent' });
+ * torrent.on('progress', (p) => console.log(`${(p.percent * 100).toFixed(1)}% @ ${p.speed}`));
+ * torrent.on('done', () => console.log('done'));
+ * torrent.on('error', (err) => console.error(err));
+ * await torrent.done;
+ */
 export class Torrent {
+    /**
+     * Resolves when the download completes successfully, rejects when it fails.
+     *
+     * For both outcomes the torrent emits a corresponding event (`done` / `error`)
+     * before this promise settles.
+     */
     public readonly done: Promise<void>;
     private readonly listeners = new Map<TorrentEventName, Set<(...args: unknown[]) => void>>();
     private currentState = TorrentState.DOWNLOADING;
@@ -98,14 +144,17 @@ export class Torrent {
         );
     }
 
+    /** Current lifecycle state. See {@link TorrentState}. */
     public get state(): TorrentState {
         return this.currentState;
     }
 
+    /** Last error observed during the download, or `undefined` if none. Always set when state is `failed`. */
     public get error(): unknown {
         return this.lastError;
     }
 
+    /** Live peer-pool stats. See {@link TorrentStats}. */
     public get stats(): TorrentStats {
         return {
             peers: this.peerPool.totalPeers,
@@ -117,6 +166,14 @@ export class Torrent {
         };
     }
 
+    /**
+     * Live download progress snapshot.
+     *
+     * `receivedBytes` counts bytes that have arrived from peers; `downloadedBytes`
+     * counts only bytes from pieces that have passed SHA-1 validation and been written
+     * to disk. The two differ during active download because in-flight pieces have
+     * received blocks but no hash has been verified yet.
+     */
     public get progress(): DownloadProgress {
         return (
             this.downloadManager?.progress ?? {
@@ -132,6 +189,11 @@ export class Torrent {
         );
     }
 
+    /**
+     * File selection for this download, partitioned into included and excluded sets.
+     *
+     * When no `files` option was supplied, every torrent file is included.
+     */
     public get files(): TorrentFiles {
         if (!this.selectedFiles) return { included: this.metadata.files, excluded: [] };
 
@@ -144,6 +206,21 @@ export class Torrent {
         return { included, excluded };
     }
 
+    /**
+     * Subscribe to a torrent event. Returns an unsubscribe function.
+     *
+     * Events:
+     * - `state` — every state transition, with `{ previous, state }`.
+     * - `progress` — emitted on piece completion or every block, depending on `progressEvents`.
+     * - `peer` — a new peer session joined the pool. Receives current {@link TorrentStats}.
+     * - `done` — the download completed successfully. Fires once.
+     * - `error` — the download failed. Receives the error. Fires once.
+     * - `close` — {@link Torrent.close} was called. Fires once.
+     *
+     * @param event - Event name.
+     * @param listener - Callback invoked with the event payload.
+     * @returns Unsubscribe function. Idempotent and safe to call after the torrent closes.
+     */
     public on<TEvent extends TorrentEventName>(
         event: TEvent,
         listener: TorrentEventListener<TEvent>,
@@ -162,6 +239,12 @@ export class Torrent {
         };
     }
 
+    /**
+     * Stop the download, close peer sessions, and transition to {@link TorrentState.CLOSED}.
+     *
+     * Idempotent. After close, the `done` promise will not resolve or reject again,
+     * and `progress` / `stats` snapshot the values at close time.
+     */
     public close(): void {
         if (this.currentState === TorrentState.CLOSED) return;
 

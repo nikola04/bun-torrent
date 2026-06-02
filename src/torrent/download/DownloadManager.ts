@@ -24,16 +24,28 @@ export type DownloadManagerOptions = {
     writeValidatedPiece?: typeof writeValidatedPiece;
 };
 
+/** Controls how often a {@link Torrent} emits `progress` events. */
 export type DownloadProgressEventMode = 'piece' | 'block';
 
+/**
+ * Progress snapshot returned by {@link Torrent.progress} and the `progress` event payload.
+ */
 export type DownloadProgress = {
+    /** Total bytes in the selected files. */
     totalBytes: number;
+    /** Bytes received from peers across all pieces (includes pieces still pending validation). */
     receivedBytes: number;
+    /** Bytes from pieces that have passed SHA-1 validation and been written to disk. */
     downloadedBytes: number;
+    /** Total pieces selected for this download. */
     totalPieces: number;
+    /** Pieces that have completed validation. */
     completedPieces: number;
+    /** Validated progress, `downloadedBytes / totalBytes`, in the range `[0, 1]`. */
     percent: number;
+    /** Smoothed download rate in bytes per second. */
     speedBytesPerSecond: number;
+    /** Pre-formatted version of `speedBytesPerSecond`, e.g. `"1.4 MBps"`. */
     speed: string;
 };
 
